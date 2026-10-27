@@ -131,10 +131,13 @@ State: playable headless and in a window: menus, loading, driving, keyboard and 
 Installed with make install (applications menu "Hard Truck 2: King of the Road",
 ~/.local/opt/hardtruck2-native). Committed locally (no GitHub remote: creating the repository
 was refused by the permission check; Ant to decide).
-Missing: music (the game plays MUSIC\*.mp3 through DirectShow: CoCreateInstance of
-CLSID_FilterGraph {e436ebb3-...} / IGraphBuilder from its music thread; not provided), movies
-(kotr.avi etc.: Indeo 5 through MSVFW32 + GetAVIInfo.dll's IGetAVIInfo; its behaviour is
-specified in work/decomp/avi/SPEC.md), rumble, higher resolutions / widescreen.
+Music: dshow.c (DirectShow filter graph: RenderFile decodes the MP3 whole with FFmpeg, played as
+a runtime voice; Run/Stop/GetState, EC_COMPLETE for the next track, IBasicAudio volume); the
+game plays music in the world only. Movies: getaviinfo.c (IGetAVIInfo natively, after
+work/decomp/avi/SPEC.md) + vfw.c (Indeo 5 by FFmpeg behind ICOpen/ICSendMessage/ICDecompress,
+24-bit output as the game asks); the intro movie plays with its sound; Start (Escape) skips it.
+The BSTR helper 0x5c1090 relies on MultiByteToWideChar writing what fits before failing.
+Missing: rumble, higher resolutions / widescreen, a test with a real controller.
 Tests: build/ht2 --test --user work/testuser (fresh folder: TRUCK.INI and kmjin.ini are made);
 HT2_PAD="frame:BUTTON*hold,frame:AXIS=value*hold" (no PLUG: connected from start-up), HT2_KEYS,
 HT2_GPU_OFFSCREEN=1 HT2_DUMP_FRAMES=<dir> HT2_DUMP_EVERY=<n> [HT2_DUMP_FROM=<frame>]. Main menu:
@@ -146,6 +149,7 @@ work/rea (king.exe, GetAVIInfo.dll). Lockstep: tools/lockstep.py --seed <folder 
 - 2026-10-26: project made, installer unpacked, translator and runtime forked from td6-native.
   Headless --test runs go: MFC start-up, TRUCK.INI and kmjin.ini, LOAD.RES, DirectPlay, the
   player profile, DirectDraw/Direct3D 7 at 640x480x16, menu fonts, the loading screen's overlay.
+- 2026-10-26 (evening): music (DirectShow) and movies (IGetAVIInfo + Indeo 5).
 - 2026-10-26 (later): menus on Vulkan (8-bit palettes); the keyboard reaches the game (the
   window layer lost its main window when the first frame window was destroyed); loading screen
   and driving; the test clock fix; controllers; make install.
