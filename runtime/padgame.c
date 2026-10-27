@@ -18,7 +18,9 @@
    every binding changeable.
 
    Menus (8-bit screens): the D-pad or left stick moves as the arrow keys do, A is Return, B is
-   Escape. While driving, Start is Escape. The game reads the keyboard as window messages, so
+   Escape. While driving, Start is Escape and the right stick and its click are the camera keys
+   (below: the game takes only buttons for those actions, and button 10 not at all) [verified:
+   the CONTROLLERS screen showed no binding for axes 4/5 or button 10 on them]. The game reads the keyboard as window messages, so
    these go to the window like real keys (win_key). */
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,11 +50,6 @@ static const char profile[] =
     "VVK_ATTACH_SEMITRAILER     = J B4       (VK_JOYBUTTON_03)\r\n"
     "VVK_MAP                    = J B7       (VK_JOYBUTTON_06)\r\n"
     "VVK_BEAMS                  = J B9       (VK_JOYBUTTON_08)\r\n"
-    "VVK_VIEWER_OUTSIDEVIEWMODE = J B10      (VK_JOYBUTTON_09)\r\n"
-    "VVK_VIEWER_LEFT            = J A4-      (VA_JOYSTICK_03)\r\n"
-    "VVK_VIEWER_RIGHT           = J A4+      (VA_JOYSTICK_03)\r\n"
-    "VVK_CAM_NEAR               = J A5-      (VA_JOYSTICK_04)\r\n"
-    "VVK_CAM_FAR                = J A5+      (VA_JOYSTICK_04)\r\n"
     "VVK_PAGER_NEXT             = J povB1    (VK_JOYPOVBUTTON_00)\r\n"
     "VVK_WIPER                  = J povB3    (VK_JOYPOVBUTTON_02)\r\n"
     "VVK_BUY                    = J povB4    (VK_JOYPOVBUTTON_03)\r\n"
@@ -106,8 +103,13 @@ static void write_profiles(void)
 }
 
 /* ------------------------------------------------------------------ menus by pad */
-enum { MK_UP, MK_DOWN, MK_LEFT, MK_RIGHT, MK_ENTER, MK_ESCAPE, MK_N };
-static const int mk_dik[MK_N] = {0xc8, 0xd0, 0xcb, 0xcd, 0x1c, 0x01};
+/* menus: arrows, Return, Escape; driving: Escape (Start) and the keys of the camera actions,
+   which the game binds to buttons only: the right stick looks left/right (Del, PgDn) and moves
+   the camera closer/further (Home, End), the right stick's click is the outside view (V) - the
+   game's keyboard defaults (its CONTROLLERS screen) */
+enum { MK_UP, MK_DOWN, MK_LEFT, MK_RIGHT, MK_ENTER, MK_ESCAPE, MK_LOOKL, MK_LOOKR, MK_NEAR, MK_FAR,
+       MK_OUTSIDE, MK_N };
+static const int mk_dik[MK_N] = {0xc8, 0xd0, 0xcb, 0xcd, 0x1c, 0x01, 0xd3, 0xd1, 0xc7, 0xcf, 0x2f};
 static int mk_down[MK_N];
 
 static void mk_set(int k, int down)
@@ -133,8 +135,15 @@ void padgame_frame(unsigned long frame)
             want[MK_RIGHT] = pad_held(PAD_DRIGHT) || lx > 20000;
             want[MK_ENTER] = pad_held(PAD_A) || pad_held(PAD_START);
             want[MK_ESCAPE] = pad_held(PAD_B);
-        } else
+        } else {
+            int rx = pad_axis_value(PAD_RX), ry = pad_axis_value(PAD_RY);
             want[MK_ESCAPE] = pad_held(PAD_START);
+            want[MK_LOOKL] = rx < -16000;
+            want[MK_LOOKR] = rx > 16000;
+            want[MK_NEAR] = ry < -16000;
+            want[MK_FAR] = ry > 16000;
+            want[MK_OUTSIDE] = pad_held(PAD_RSTICK);
+        }
     }
     for (int k = 0; k < MK_N; k++)
         mk_set(k, want[k]);
