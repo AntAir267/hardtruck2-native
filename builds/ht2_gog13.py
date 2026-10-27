@@ -43,6 +43,11 @@ HOOKS = {
     # the player's profile opened at start-up (0x5275c0: a new one sets [EFFECTS] control = 0,
     # keyboard only): padgame.c makes a new profile's device the controller when one is connected
     0x5275c0: 'profile_open',
+    # the GRAPHICS screen (menu.c: the port's options as its second page): constructor, OnCommand
+    # (this = screen+0x40) and draw (this = screen+0x40)
+    0x515460: 'graphics_ctor',
+    0x515ac0: 'graphics_command',
+    0x5162e0: 'graphics_draw',
 }
 CONSTS = {}
 INLINE = {}

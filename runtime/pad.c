@@ -189,13 +189,17 @@ static const struct { const char *name; int button; } button_names[] = {
 };
 static const char *const axis_names[PAD_AXES] = {"LX", "LY", "RX", "RY", "LT", "RT"};
 
-void pad_init(void)
+/* controller_deadzone: read at start-up and again when the in-game options page changes it */
+void pad_options(void)
 {
     const char *dz = option_str("controller_deadzone", NULL);
-    if (dz) {
-        double v = atof(dz);
-        stick_dead = (v < 0 ? 0 : v > 90 ? 90 : v) / 100 * 32767;
-    }
+    double v = dz ? atof(dz) : 6;
+    stick_dead = (v < 0 ? 0 : v > 90 ? 90 : v) / 100 * 32767;
+}
+
+void pad_init(void)
+{
+    pad_options();
     const char *env = getenv("HT2_PAD");
     if (!env || !*env)
         return;

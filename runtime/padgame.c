@@ -111,13 +111,13 @@ static void write_profiles(void)
 }
 
 /* ------------------------------------------------------------------ menus by pad */
-/* menus: arrows, Return, Escape; driving: Escape (Start) and the keys of the camera actions,
+/* menus: arrows, Return, Escape, Tab; driving: Escape (Start) and the keys of the camera actions,
    which the game binds to buttons only: the right stick looks left/right (Del, PgDn) and moves
    the camera closer/further (Home, End), the right stick's click is the outside view (V) - the
    game's keyboard defaults (its CONTROLLERS screen) */
-enum { MK_UP, MK_DOWN, MK_LEFT, MK_RIGHT, MK_ENTER, MK_ESCAPE, MK_LOOKL, MK_LOOKR, MK_NEAR, MK_FAR,
-       MK_OUTSIDE, MK_N };
-static const int mk_dik[MK_N] = {0xc8, 0xd0, 0xcb, 0xcd, 0x1c, 0x01, 0xd3, 0xd1, 0xc7, 0xcf, 0x2f};
+enum { MK_UP, MK_DOWN, MK_LEFT, MK_RIGHT, MK_ENTER, MK_ESCAPE, MK_TAB, MK_LOOKL, MK_LOOKR, MK_NEAR,
+       MK_FAR, MK_OUTSIDE, MK_N };
+static const int mk_dik[MK_N] = {0xc8, 0xd0, 0xcb, 0xcd, 0x1c, 0x01, 0x0f, 0xd3, 0xd1, 0xc7, 0xcf, 0x2f};
 static int mk_down[MK_N];
 
 static void mk_set(int k, int down)
@@ -157,6 +157,9 @@ void padgame_frame(unsigned long frame)
             want[MK_RIGHT] = pad_held(PAD_DRIGHT) || lx > 20000;
             want[MK_ENTER] = pad_held(PAD_A) || pad_held(PAD_START);
             want[MK_ESCAPE] = pad_held(PAD_B);
+            /* RB: Tab, the menus' next group (the arrows only move inside a group: a screen's
+               panel, its button row) [verified: 0x5bd960 case 9] */
+            want[MK_TAB] = pad_held(PAD_RB);
         } else {
             int rx = pad_axis_value(PAD_RX), ry = pad_axis_value(PAD_RY);
             want[MK_ESCAPE] = pad_held(PAD_START);

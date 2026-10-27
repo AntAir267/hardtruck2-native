@@ -193,3 +193,14 @@ int options_save(void)
         LOG(LOG_ALWAYS, "options: cannot save %s", path);
     return ok;
 }
+
+/* The in-game options page (menu.c) changed something: apply it now */
+void options_changed(void)
+{
+    extern void vk_options(void), widescreen_options(void), win_options(void), pad_options(void);
+    widescreen_options();
+    vk_options();
+    win_options();
+    frame_limit_options();
+    pad_options();
+}

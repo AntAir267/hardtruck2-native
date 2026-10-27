@@ -118,7 +118,7 @@ knowledge (addresses only).
   take buttons only (axes 4/5 and button 10 are not accepted there), so while driving the right
   stick and R3 are keys: look left/right (Del/PgDn), camera closer/further (Home/End), outside
   view (V). Start is Escape while driving; in the 8-bit menus D-pad/left stick are the arrow
-  keys, A/Start Return, B Escape.
+  keys, A/Start Return, B Escape, RB Tab (next group of buttons).
 - A new player profile's device is the controller when one is connected (hook on 0x5275c0: as
   the CONTROLLERS screen's arrow, 0x530730(1) and 0x512ce0 on the game object, then [EFFECTS]
   control=1). An existing profile keeps its choice.
@@ -154,8 +154,30 @@ options menu, in its style; options.txt stays for testing and power users. Ant c
 game's own menu over an overlay. Defaults: native resolution and widescreen on (Ant's choice; GAME-GOALS allows enhancements
 on at launch as long as the original look stays reachable in the options). Everything else
 starts original.
-Under way: mapping the GRAPHICS screen's code and the menu toolkit (work/decomp/menu/MENU.md)
-for a new page.
+Done (menu.c, 2026-10-26): MORE OPTIONS, a second page of the GRAPHICS screen, built only from
+the game's own parts (toolkit map: work/decomp/menu/MENU.md). An "aright" arrow + "More" right of
+AUTODETECT opens it (keyboard/pad: Up from AUTODETECT, then Return/A). The page is the
+CONTROLLERS screen's panel (c\backCtrlOpt.txr at 200,153, its rows made with 0x512eb0 on the
+same 20-px grid, DEFAULT c\def, CANCEL c\canc); the device box at the top holds "More Options"
+(LARGE.FON) between the arrows, the left one goes back, the right one is disabled. Rows: Display,
+Resolution, Widescreen, Anti-aliasing, Textures, Colours, Vsync, Frame limit | Rumble, Dead zone.
+Each row's two small cells are merged on the menu surface after the screen's draw (the divider
+covered with the cell's own pixels; surface +0x18 = pixels [verified: probe]) and the value is
+drawn there (MENU.FON; y given to 0x5e97a0 is the text's bottom [verified: 0x5e995c]).
+Return, a click or Right = next value, Left = previous (a copy of the text row's vtable with its
+key slot replaced), Escape = back to the first page (same for the page container). Every change
+applies at once (options_changed: widescreen, vk_options, win_options, frame limit, dead zone)
+and is written to options.txt; CANCEL (cmd 2, which also closes the screen as the game's does)
+puts back the values the page had when first opened. render_thread stays file-only (needs a
+restart). Hooks: 0x515460 (ctor), 0x515ac0 (OnCommand; the original runs first, it ignores ids
+above 0x8a), 0x5162e0 (draw; the card name is blanked while the page shows). Command ids 0x11c..
+with tooltips in mess slots 310+.
+Findings: the game's panels have art in the focused state only (T_FOCUSED 0x6cd368 has no image),
+so with the focus outside a panel it is not drawn and old pixels show; our panel gets the art in
+all four states. Arrows move inside a group only; Tab (pad: RB, added) goes to the next group:
+from the rows Tab reaches CANCEL, then DEFAULT. Escape does nothing on the GRAPHICS screen itself
+and the keyboard/pad cannot reach the main menu's buttons from a sub-screen (the game's own
+behaviour, mouse only) [verified: runs 78-81].
 
 ### 8. options.txt (2026-10-26)
 Written at the first start (outside test runs) listing every option at its default, commented
@@ -201,6 +223,7 @@ work/rea (king.exe, GetAVIInfo.dll). Lockstep: tools/lockstep.py --seed <folder 
   Headless --test runs go: MFC start-up, TRUCK.INI and kmjin.ini, LOAD.RES, DirectPlay, the
   player profile, DirectDraw/Direct3D 7 at 640x480x16, menu fonts, the loading screen's overlay.
 - 2026-10-26 (night): native resolution and Hor+ widescreen by default.
+- 2026-10-26 (night, later): MORE OPTIONS page in the GRAPHICS screen (menu.c); RB = Tab in menus.
 - 2026-10-26 (evening): music (DirectShow) and movies (IGetAVIInfo + Indeo 5).
 - 2026-10-26 (later): menus on Vulkan (8-bit palettes); the keyboard reaches the game (the
   window layer lost its main window when the first frame window was destroyed); loading screen

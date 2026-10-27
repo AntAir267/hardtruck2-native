@@ -410,8 +410,9 @@ void runtime_setup(void)
     extern void widescreen_init(void);
     widescreen_init();
     padgame_init();
-    extern void game_init(void);
+    extern void game_init(void), menu_init(void);
     game_init();
+    menu_init();
 }
 
 /* ------------------------------------------------------------------ main */

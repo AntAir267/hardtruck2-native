@@ -30,6 +30,7 @@ int pad_active_slot(void);                            /* the one used last (a bu
    of these plugs one in, there is no controller at start-up.
    pad_init also reads controller_deadzone from options.txt; call it before the game starts. */
 void pad_init(void);
+void pad_options(void);                              /* controller_deadzone changed */
 void pad_frame(unsigned long frame);                 /* per presented frame, from input_frame */
 
 /* padgame.c */
