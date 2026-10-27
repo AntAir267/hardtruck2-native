@@ -151,8 +151,8 @@ knowledge (addresses only).
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
 Installed with make install (applications menu "Hard Truck 2: King of the Road",
-~/.local/opt/hardtruck2-native). Committed locally (no GitHub remote: creating the repository
-was refused by the permission check; Ant to decide).
+~/.local/opt/hardtruck2-native). Private GitHub repository AntAir267/hardtruck2-native (branch master), made 2026-10-26 at
+Ant's request.
 Music: dshow.c (DirectShow filter graph: RenderFile decodes the MP3 whole with FFmpeg, played as
 a runtime voice; Run/Stop/GetState, EC_COMPLETE for the next track, IBasicAudio volume); the
 game plays music in the world only. Movies: getaviinfo.c (IGetAVIInfo natively, after
