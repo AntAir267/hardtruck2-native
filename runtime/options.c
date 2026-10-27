@@ -45,11 +45,20 @@ int option_parse(const char *line)
 
 /* comments for keys written to the file the first time */
 static const char *const help[][2] = {
-    {"resolution", "resolution: native (drawn at the screen's own resolution) or original (the game's display mode, scaled up)"},
-    {"widescreen", "widescreen: on (the 3D world as wide as the screen), off (4:3 as shipped), or an aspect such as 16:9"},
     {"display", "display: window or fullscreen (Alt+Enter switches too)"},
+    {"resolution", "resolution: native (drawn at the screen's own resolution), original (the game's own "
+                   "640x480 / 800x600, scaled up) or a multiple of the game's size such as 2"},
+    {"widescreen", "widescreen: on (the 3D world as wide as the screen, the same height of view), off "
+                   "(4:3 as shipped), or a shape such as 16:9 or 21:9; the instrument bar and menus stay 4:3"},
+    {"antialiasing", "antialiasing: off, or 4x (drawn at twice the size each way and scaled down: smoother "
+                     "edges, more work for the graphics card)"},
+    {"textures", "textures: original (as the game asks) or smooth (trilinear and anisotropic filtering on "
+                 "the 3D world's textures: sharper roads at a distance)"},
+    {"colour_precision", "colour_precision: original (16-bit colour, as the game draws) or high (the 3D "
+                         "world drawn with more precision, then dithered: less banding in the sky and fog)"},
     {"vsync", "vsync: on (frames wait for the screen) or off"},
     {"frame_limit", "frame_limit: off, screen (3 under the screen's refresh, for G-Sync / FreeSync) or a rate"},
+    {"render_thread", "render_thread: on (drawing on a thread of its own: faster) or off"},
     {"rumble", "rumble: on (the game's force feedback on the controller's motors) or off"},
     {"controller_deadzone", "controller_deadzone: the sticks' dead zone against resting drift, percent"},
     {NULL, NULL}};
@@ -59,8 +68,9 @@ static const char *const help[][2] = {
 static void write_template(const char *path)
 {
     static const char *const def[][2] = {
-        {"display", "window"}, {"resolution", "native"}, {"widescreen", "on"}, {"vsync", "on"},
-        {"frame_limit", "off"}, {"rumble", "on"}, {"controller_deadzone", "6"},
+        {"display", "window"}, {"resolution", "native"}, {"widescreen", "on"}, {"antialiasing", "off"},
+        {"textures", "original"}, {"colour_precision", "original"}, {"vsync", "on"},
+        {"frame_limit", "off"}, {"render_thread", "on"}, {"rumble", "on"}, {"controller_deadzone", "6"},
         {NULL, NULL}};
     FILE *f = fopen(path, "w");
     if (!f)

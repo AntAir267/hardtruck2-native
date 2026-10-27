@@ -148,6 +148,15 @@ knowledge (addresses only).
   the camera's [RENDER] xpyramid/ypyramid (0.8/0.6 defaults, TRUCK.INI 1.2/0.9) go to the camera
   object too, 0x5df9c5]. Off in --test runs unless HT2_WIDESCREEN=1.
 
+### 8. options.txt (2026-10-26)
+Written at the first start (outside test runs) listing every option at its default, commented
+out (options.c): display, resolution (native default), widescreen (on), antialiasing (off | 4x),
+textures (original | smooth), colour_precision (original | high), vsync, frame_limit,
+render_thread, rumble, controller_deadzone. Checked in driving frames: 4x (drawn at 2x each way),
+smooth and high change the picture and run. Not listed: antialiasing taa / fsr / dlss (td6-native's
+temporal anti-aliasing follows TD6's scene; not checked here, FSR 2 and DLSS absent on the 890M),
+menu_fps (no menu/driving test for this game: it does nothing), render_scale (temporal only).
+
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
 Installed with make install (applications menu "Hard Truck 2: King of the Road",

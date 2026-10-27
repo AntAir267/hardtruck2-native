@@ -132,7 +132,7 @@ void win_init(void)
     input_script_key_hook = script_key;
     if (headless)
         return;
-    SDL_SetHint(SDL_HINT_APP_NAME, "Test Drive 6");
+    SDL_SetHint(SDL_HINT_APP_NAME, "Hard Truck 2");
     SDL_SetHint(SDL_HINT_APP_ID, "hardtruck2-native");          /* the desktop entry's StartupWMClass */
     SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "512");
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS | SDL_INIT_AUDIO))
