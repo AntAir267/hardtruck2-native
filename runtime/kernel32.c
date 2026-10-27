@@ -389,7 +389,14 @@ API(KERNEL32, MultiByteToWideChar, 6)
     if (!src) { set_last_error(87); return 0; }     /* ERROR_INVALID_PARAMETER, as Windows */
     if (n < 0) n = strlen(gptr(src)) + 1;
     if (!cap) return n;
-    if ((uint32_t)n > cap) { set_last_error(122); return 0; }
+    if ((uint32_t)n > cap) {
+        /* as Windows: what fits is written, then ERROR_INSUFFICIENT_BUFFER (Hard Truck 2's BSTR
+           helper 0x5c1090 converts into a buffer one short of the terminator) */
+        for (uint32_t i = 0; i < cap; i++)
+            W16(dst + 2 * i, to_wide(R8(src + i)));
+        set_last_error(122);
+        return 0;
+    }
     for (int i = 0; i < n; i++)
         W16(dst + 2 * i, to_wide(R8(src + i)));
     return n;
@@ -403,7 +410,12 @@ API(KERNEL32, WideCharToMultiByte, 8)
     if (n < 0) { n = 0; while (R16(src + 2 * n)) n++; n++; }
     if (ARG(7)) W32(ARG(7), 0);
     if (!cap) return n;
-    if ((uint32_t)n > cap) { set_last_error(122); return 0; }
+    if ((uint32_t)n > cap) {
+        for (uint32_t i = 0; i < cap; i++)         /* what fits, as Windows */
+            W8(dst + i, to_narrow(R16(src + 2 * i)));
+        set_last_error(122);
+        return 0;
+    }
     for (int i = 0; i < n; i++)
         W8(dst + i, to_narrow(R16(src + 2 * i)));
     return n;

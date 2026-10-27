@@ -30,6 +30,10 @@ API(OLE32, CoCreateInstance, 5)
     hr = dplay_cocreate(clsid, iid, ARG(4));
     if (hr != 0x80040154u)
         return hr;
+    extern uint32_t getaviinfo_cocreate(uint32_t clsid, uint32_t riid, uint32_t ppv);
+    hr = getaviinfo_cocreate(clsid, iid, ARG(4));
+    if (hr != 0x80040154u)
+        return hr;
     extern uint32_t dshow_cocreate(uint32_t clsid, uint32_t riid, uint32_t ppv);
     hr = dshow_cocreate(clsid, iid, ARG(4));
     if (hr != 0x80040154u)
