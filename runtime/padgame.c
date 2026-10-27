@@ -125,8 +125,22 @@ void padgame_frame(unsigned long frame)
 {
     (void)frame;
     int want[MK_N] = {0};
+    static int was_menus = -1, latched;
     if (pad_count()) {
         int menus = gfx_mode.set && gfx_mode.bpp == 8;     /* the 8-bit screens are the menus */
+        /* a button held while the screen changes (Start skipping a movie) acts again only once
+           everything is let go, so it does not also press the new screen's button */
+        int any = pad_held(PAD_A) || pad_held(PAD_B) || pad_held(PAD_START);
+        if (was_menus >= 0 && menus != was_menus && any)
+            latched = 1;
+        was_menus = menus;
+        if (latched && !any)
+            latched = 0;
+        if (latched) {
+            for (int k = 0; k < MK_N; k++)
+                mk_set(k, 0);
+            return;
+        }
         int lx = pad_axis_value(PAD_LX), ly = pad_axis_value(PAD_LY);
         if (menus) {
             want[MK_UP] = pad_held(PAD_DUP) || ly < -20000;
