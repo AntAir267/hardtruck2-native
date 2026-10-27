@@ -50,6 +50,9 @@ int input_controller_last(void) { return last_controller; }
    one hands them back to the keyboard. */
 int pad_attach(const char *id, const char *name)
 {
+    extern const char *padgame_device_name(const char *name);
+    LOG(LOG_INPUT, "controller \"%s\" shown to the game as \"%s\"", name ? name : "?", padgame_device_name(name));
+    name = padgame_device_name(name);
     int slot = input_joy_attach(id, name, 6, 16, 1);
     if (slot < 0)
         return -1;

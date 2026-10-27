@@ -120,6 +120,13 @@ static void script_key(int dik, int down)
     post_message(down ? 0x0100 : 0x0101, vk, lparam);
 }
 
+/* A key from the runtime (controller menu keys, padgame.c): DirectInput's keyboard and the window */
+void win_key(int dik, int down)
+{
+    input_key(dik, down);
+    script_key(dik, down);
+}
+
 void win_init(void)
 {
     input_script_key_hook = script_key;

@@ -40,6 +40,9 @@ HOOKS = {
     # an image of a cluster being made ready (ECX = the image record): game.c loads the pixels of
     # on-demand 16/32-bit images that are drawn as surfaces, which the game would copy from NULL
     0x5b9ec0: 'image_ready',
+    # the player's profile opened at start-up (0x5275c0: a new one sets [EFFECTS] control = 0,
+    # keyboard only): padgame.c makes a new profile's device the controller when one is connected
+    0x5275c0: 'profile_open',
 }
 CONSTS = {}
 INLINE = {}
