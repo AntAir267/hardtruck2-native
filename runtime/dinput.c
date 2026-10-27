@@ -1145,6 +1145,9 @@ static Rumble ff_rumble(Device *d)       /* under in_lock */
         }
         double m;
         int high = 0;
+        if (e->gid == G_CONSTANT && left == INFINITE)
+            continue;           /* a constant force with no end is a wheel's steering torque (Hard
+                                   Truck 2's cFFBEF_Constant, set every frame): not a rumble */
         if (e->gid == G_CONSTANT)
             m = absd(tsp_i32(e, 0));
         else if (e->gid == G_RAMP)

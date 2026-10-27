@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include "runtime.h"
 #include "options.h"
 #include "input.h"
@@ -62,7 +63,14 @@ const char *padgame_device_name(const char *name)
     return PAD_NAME;
 }
 
-int ifc_rumble_wanted(void) { return 0; }
+/* Rumble (options.txt rumble = on | off, default on): the controller is a force-feedback joystick,
+   and the game's effects (cFFBEF_offRoad: periodic, on rough ground; constant forces) play on its
+   motors (dinput.c). Its wheel-centring condition effects are not offered (it carries on
+   without them, as with a joystick that has none). */
+int ifc_rumble_wanted(void)
+{
+    return strcasecmp(option_str("rumble", "on"), "off") != 0;
+}
 
 /* The user folder's kmjin.ini: the game's with our section first (written again when the game's
    changes or ours is missing; a section the player edited is kept as it is) */

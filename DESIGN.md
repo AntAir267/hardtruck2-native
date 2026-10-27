@@ -123,8 +123,12 @@ knowledge (addresses only).
   the CONTROLLERS screen's arrow, 0x530730(1) and 0x512ce0 on the game object, then [EFFECTS]
   control=1). An existing profile keeps its choice.
 - Verified headless with the scripted controller: menus, a fresh install driving with RT and
-  the left stick, look right, outside view. Not yet tried with a real pad by Ant. No rumble yet
-  (whether the game plays force feedback is not checked).
+  the left stick, look right, outside view. Not yet tried with a real pad by Ant.
+- Rumble (options.txt rumble = on|off, default on): the controller is a force-feedback joystick.
+  The game's effects [verified: its log strings and CreateEffect calls]: cFFBEF_offRoad (sine,
+  rough ground: the big motor, up to full on grass), cFFBEF_bounce (short constant forces: bumps),
+  a square wave, cFFBEF_Constant (endless constant force: a wheel's steering torque, left off the
+  motors), ToCenter / ResistOnMove (spring, damper: not offered, the game goes on without them).
 
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
@@ -137,7 +141,7 @@ game plays music in the world only. Movies: getaviinfo.c (IGetAVIInfo natively, 
 work/decomp/avi/SPEC.md) + vfw.c (Indeo 5 by FFmpeg behind ICOpen/ICSendMessage/ICDecompress,
 24-bit output as the game asks); the intro movie plays with its sound; Start (Escape) skips it.
 The BSTR helper 0x5c1090 relies on MultiByteToWideChar writing what fits before failing.
-Missing: rumble, higher resolutions / widescreen, a test with a real controller.
+Missing: higher resolutions / widescreen, a test with a real controller.
 Tests: build/ht2 --test --user work/testuser (fresh folder: TRUCK.INI and kmjin.ini are made);
 HT2_PAD="frame:BUTTON*hold,frame:AXIS=value*hold" (no PLUG: connected from start-up), HT2_KEYS,
 HT2_GPU_OFFSCREEN=1 HT2_DUMP_FRAMES=<dir> HT2_DUMP_EVERY=<n> [HT2_DUMP_FROM=<frame>]. Main menu:
