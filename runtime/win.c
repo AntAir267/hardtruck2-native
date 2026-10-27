@@ -166,6 +166,7 @@ void host_window_create(const char *title, int w, int h)
 void host_window_show(int visible)
 {
     if (!window) return;
+    LOG(LOG_WIN, "host window %s", visible ? "shown" : "hidden");
     if (visible) SDL_ShowWindow(window);
     else SDL_HideWindow(window);
 }

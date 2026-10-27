@@ -463,8 +463,9 @@ static void destroy_window(CPU *c, uint32_t hwnd)
                 main_hwnd = wins[i].hwnd;
                 break;
             }
-        if (!main_hwnd)
-            host_window_show(0);
+        /* hiding the destroyed window above hid the host window: show it again for the new one
+           [verified: 2026-10-27, the game played with its window hidden after 0x10020 went] */
+        host_window_show(main_hwnd != 0);
     }
 }
 
