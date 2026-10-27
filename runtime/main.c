@@ -45,6 +45,14 @@ static double real_ms(void)
     return (t.tv_sec - t_start.tv_sec) * 1000.0 + (t.tv_nsec - t_start.tv_nsec) / 1e6;
 }
 
+/* --test: a Sleep moves the virtual clock instead of waiting (Hard Truck 2 times its clock against
+   timeGetTime over a Sleep(2000) at start-up, 0x6035f0: with the clock standing still it divided by
+   nothing and its game time was NaN) */
+void vclock_sleep(uint32_t ms)
+{
+    vclock += ms;
+}
+
 double now_ms(void)
 {
     if (deterministic) {

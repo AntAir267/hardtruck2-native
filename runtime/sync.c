@@ -288,6 +288,14 @@ API(KERNEL32, Sleep, 1)
         sched_yield();
         return 0;
     }
+    CPU *self = current_cpu();
+    if (deterministic && ms != 0xffffffffu && self && self->thread_index == 0) {
+        /* (the main thread only: other threads' waits, as the music thread's retries, run in real time) */
+        extern void vclock_sleep(uint32_t ms);
+        vclock_sleep(ms);
+        sched_yield();
+        return 0;
+    }
     struct timespec ts = {ms / 1000, (long)(ms % 1000) * 1000000L};
     while (nanosleep(&ts, &ts) && errno == EINTR) {}
     return 0;
