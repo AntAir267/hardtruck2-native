@@ -118,7 +118,7 @@ knowledge (addresses only).
   take buttons only (axes 4/5 and button 10 are not accepted there), so while driving the right
   stick and R3 are keys: look left/right (Del/PgDn), camera closer/further (Home/End), outside
   view (V). Start is Escape while driving; in the 8-bit menus D-pad/left stick are the arrow
-  keys, A/Start Return, B Escape, RB Tab (next group of buttons).
+  keys, A/Start Return, B Escape (leaves a sub-screen, menu.c), RB Tab (next group of buttons).
 - A new player profile's device is the controller when one is connected (hook on 0x5275c0: as
   the CONTROLLERS screen's arrow, 0x530730(1) and 0x512ce0 on the game object, then [EFFECTS]
   control=1). An existing profile keeps its choice.
@@ -175,9 +175,15 @@ with tooltips in mess slots 310+.
 Findings: the game's panels have art in the focused state only (T_FOCUSED 0x6cd368 has no image),
 so with the focus outside a panel it is not drawn and old pixels show; our panel gets the art in
 all four states. Arrows move inside a group only; Tab (pad: RB, added) goes to the next group:
-from the rows Tab reaches CANCEL, then DEFAULT. Escape does nothing on the GRAPHICS screen itself
-and the keyboard/pad cannot reach the main menu's buttons from a sub-screen (the game's own
-behaviour, mouse only) [verified: runs 78-81].
+from the rows Tab reaches CANCEL, then DEFAULT [verified: runs 78-81].
+Escape (pad B) now leaves a main-menu sub-screen (Ant, 2026-10-26: before, only the mouse could,
+by clicking another round button): hook on 0x5d8260 (a screen's input). An Escape nothing on the
+screen takes comes back from the root as 0x801b (0x5bf520), i.e. OnCommand(0x1b), which no
+screen uses (switch tables checked); instead the screen is closed as the main menu's switch does
+(0x527130): GRAPHICS/CONTROLLERS/CHANGE DRIVER get OnCommand(1) first (save, may veto via
+0x674a28), then hide (vt+0x20), main +0x174 = 0, main vt+0x24. Escape on the MORE OPTIONS page
+is taken by the page (back to the first page). Verified headless: GRAPHICS (both pages),
+CONTROLLERS, SINGLE PLAYER, EXIT ("no"); Start while driving still opens ON THE ROAD.
 
 ### 8. options.txt (2026-10-26)
 Written at the first start (outside test runs) listing every option at its default, commented
@@ -223,7 +229,7 @@ work/rea (king.exe, GetAVIInfo.dll). Lockstep: tools/lockstep.py --seed <folder 
   Headless --test runs go: MFC start-up, TRUCK.INI and kmjin.ini, LOAD.RES, DirectPlay, the
   player profile, DirectDraw/Direct3D 7 at 640x480x16, menu fonts, the loading screen's overlay.
 - 2026-10-26 (night): native resolution and Hor+ widescreen by default.
-- 2026-10-26 (night, later): MORE OPTIONS page in the GRAPHICS screen (menu.c); RB = Tab in menus.
+- 2026-10-26 (night, later): MORE OPTIONS page in the GRAPHICS screen (menu.c); RB = Tab in menus; Escape/B leaves a sub-screen.
 - 2026-10-26 (evening): music (DirectShow) and movies (IGetAVIInfo + Indeo 5).
 - 2026-10-26 (later): menus on Vulkan (8-bit palettes); the keyboard reaches the game (the
   window layer lost its main window when the first frame window was destroyed); loading screen

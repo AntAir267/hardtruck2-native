@@ -48,6 +48,8 @@ HOOKS = {
     0x515460: 'graphics_ctor',
     0x515ac0: 'graphics_command',
     0x5162e0: 'graphics_draw',
+    # a screen's input (menu.c: an Escape nothing takes closes a main-menu sub-screen)
+    0x5d8260: 'screen_input',
 }
 CONSTS = {}
 INLINE = {}

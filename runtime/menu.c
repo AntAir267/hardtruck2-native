@@ -394,8 +394,53 @@ static int graphics_draw_hook(CPU *c)
     return 1;
 }
 
+/* ------------------------------------------------------------------ Escape leaves a sub-screen */
+/* The main menu's screens (GRAPHICS, CONTROLLERS, SINGLE PLAYER, ...) open inside its circle and
+   are left only by clicking another of its buttons: with the keyboard or a controller there was no
+   way back. An Escape nothing on the screen takes becomes OnCommand(0x1b) (the screen root's
+   input 0x5bf520 returns 0x801b), which no screen uses [verified: the switch tables of 0x514200,
+   0x515ac0, 0x51a2d0, 0x51b880 send 0x1b to their default; 0x517e60, 0x518140, 0x51cb60 test
+   other ids only]. Here it closes the screen as the main menu's switch does (0x527130): the
+   screens that keep settings get OnCommand(1) first (save; they may refuse by clearing
+   0x674a28), then the screen is hidden (vt+0x20), the main menu's open screen (+0x174) cleared
+   and the main menu activated (vt+0x24), as the EXIT screen's own "no" does (0x517e60).
+   Hook: 0x5d8260, a screen's input (thiscall(msg); msg: short type, 0x100 key down, +6 key). */
+static void close_screen(CPU *c, uint32_t scr, uint32_t main)
+{
+    uint32_t rootp = R32(scr + 0x38);
+    if (scr == R32(0x6cdbd0) || scr == R32(0x6cdbcc) || scr == R32(0x6cdc38)) {
+        W32(0x674a28, 1);
+        thiscall(c, rootp, R32(R32(rootp) + 0x3c), 1, 1u);
+        if (!R32(0x674a28)) return;
+    }
+    if (R32(main + 0x174) == scr) {
+        thiscall(c, scr, R32(R32(scr) + 0x20), 0);
+        W32(main + 0x174, 0);
+        thiscall(c, main, R32(R32(main) + 0x24), 0);
+    }
+    LOG(LOG_ALWAYS, "menus: Escape closed a screen (%08x)", scr);
+}
+
+static int screen_input_hook(CPU *c)
+{
+    uint32_t scr = c->ecx, msg = ARG(0), main = R32(0x6cdbe0);
+    if (!main || scr == main || R32(main + 0x174) != scr || R16(msg) != 0x100 || R16(msg + 6) != 0x1b)
+        return 0;
+    /* 0x5d8260 itself, with 0x1b taken here */
+    uint32_t rootp = R32(scr + 0x38);
+    uint32_t r = thiscall(c, rootp, R32(R32(rootp) + 0x38), 1, msg), done = (r & 0x8000) != 0;
+    uint32_t cmd = r & 0xffff7fffu;
+    if (done && cmd == 0x1b)
+        close_screen(c, scr, main);
+    else if (done && cmd)
+        thiscall(c, rootp, R32(R32(rootp) + 0x3c), 1, cmd);
+    api_return(c, done, 1);
+    return 1;
+}
+
 void menu_init(void)
 {
+    hook_screen_input = screen_input_hook;
     hook_graphics_ctor = graphics_ctor_hook;
     hook_graphics_command = graphics_command_hook;
     hook_graphics_draw = graphics_draw_hook;
