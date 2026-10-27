@@ -130,6 +130,24 @@ knowledge (addresses only).
   a square wave, cFFBEF_Constant (endless constant force: a wheel's steering torque, left off the
   motors), ToCenter / ResistOnMove (spring, damper: not offered, the game goes on without them).
 
+### 7. Resolution and widescreen (2026-10-26)
+- resolution = native (the default here): the renderer draws render targets at the size the
+  picture has in the window (vk.c, from td6-native); the game keeps its own 640x480 / 800x600
+  coordinates. Its GRAPHICS screen still offers 640x480 to 1600x1200 at 16 bits.
+- widescreen = on (default; off, or an aspect such as 16:9): Hor+ (widescreen.c). The world
+  camera's projection is made by the game from a fixed horizontal view ([EFFECTS] xpyramid,
+  camera +0x58; y scale = x scale * viewport width/height: 1.02152 / 1.52041 for the 640x430
+  driving viewport) [verified: run log]. d3d.c keeps the program's x scale and, for a
+  perspective projection with a full-width viewport, uses it divided by the widening
+  (widescreen_projection_x); vk.c spreads draws made with such a projection across the wider
+  picture (proj_widened) and keeps everything else 4:3 in the middle: the instrument bar, the
+  pager, messages, menus (8-bit screens), the small 101x76 view (its own projection). GetTransform
+  gives the program its own matrix back.
+- Culling: draw counts at a given frame are the same at 4:3 and 32:9, and a 32:9 frame shows no
+  missing objects at its sides [guess: the game's view-based culling, if any, is wide enough;
+  the camera's [RENDER] xpyramid/ypyramid (0.8/0.6 defaults, TRUCK.INI 1.2/0.9) go to the camera
+  object too, 0x5df9c5]. Off in --test runs unless HT2_WIDESCREEN=1.
+
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
 Installed with make install (applications menu "Hard Truck 2: King of the Road",
@@ -141,7 +159,7 @@ game plays music in the world only. Movies: getaviinfo.c (IGetAVIInfo natively, 
 work/decomp/avi/SPEC.md) + vfw.c (Indeo 5 by FFmpeg behind ICOpen/ICSendMessage/ICDecompress,
 24-bit output as the game asks); the intro movie plays with its sound; Start (Escape) skips it.
 The BSTR helper 0x5c1090 relies on MultiByteToWideChar writing what fits before failing.
-Missing: higher resolutions / widescreen, a test with a real controller.
+Missing: a test with a real controller; the instrument bar stays 4:3 (black at its sides in widescreen).
 Tests: build/ht2 --test --user work/testuser (fresh folder: TRUCK.INI and kmjin.ini are made);
 HT2_PAD="frame:BUTTON*hold,frame:AXIS=value*hold" (no PLUG: connected from start-up), HT2_KEYS,
 HT2_GPU_OFFSCREEN=1 HT2_DUMP_FRAMES=<dir> HT2_DUMP_EVERY=<n> [HT2_DUMP_FROM=<frame>]. Main menu:
@@ -153,6 +171,7 @@ work/rea (king.exe, GetAVIInfo.dll). Lockstep: tools/lockstep.py --seed <folder 
 - 2026-10-26: project made, installer unpacked, translator and runtime forked from td6-native.
   Headless --test runs go: MFC start-up, TRUCK.INI and kmjin.ini, LOAD.RES, DirectPlay, the
   player profile, DirectDraw/Direct3D 7 at 640x480x16, menu fonts, the loading screen's overlay.
+- 2026-10-26 (night): native resolution and Hor+ widescreen by default.
 - 2026-10-26 (evening): music (DirectShow) and movies (IGetAVIInfo + Indeo 5).
 - 2026-10-26 (later): menus on Vulkan (8-bit palettes); the keyboard reaches the game (the
   window layer lost its main window when the first frame window was destroyed); loading screen

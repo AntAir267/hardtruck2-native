@@ -45,14 +45,12 @@ int option_parse(const char *line)
 
 /* comments for keys written to the file the first time */
 static const char *const help[][2] = {
-    {"resolution", "resolution: original (the game's display mode, scaled up) or native (the screen's own)"},
-    {"widescreen", "widescreen: off (4:3 as shipped), on (match the screen), or an aspect such as 16:9"},
+    {"resolution", "resolution: native (drawn at the screen's own resolution) or original (the game's display mode, scaled up)"},
+    {"widescreen", "widescreen: on (the 3D world as wide as the screen), off (4:3 as shipped), or an aspect such as 16:9"},
     {"display", "display: window or fullscreen (Alt+Enter switches too)"},
     {"vsync", "vsync: on (frames wait for the screen) or off"},
     {"frame_limit", "frame_limit: off, screen (3 under the screen's refresh, for G-Sync / FreeSync) or a rate"},
-    {"menu_fps", "menu_fps: the front end's frame rate (its animations move a step a frame, made for 60 Hz): "
-                 "60, another rate, or off (as fast as the screen)"},
-    {"rumble", "rumble: on (the game's own strength, 75 %), off, or a strength: 25, 50, 75 or 100"},
+    {"rumble", "rumble: on (the game's force feedback on the controller's motors) or off"},
     {"controller_deadzone", "controller_deadzone: the sticks' dead zone against resting drift, percent"},
     {NULL, NULL}};
 
@@ -61,13 +59,13 @@ static const char *const help[][2] = {
 static void write_template(const char *path)
 {
     static const char *const def[][2] = {
-        {"display", "window"}, {"resolution", "original"}, {"widescreen", "off"}, {"vsync", "on"},
-        {"frame_limit", "off"}, {"menu_fps", "60"}, {"rumble", "on"}, {"controller_deadzone", "6"},
+        {"display", "window"}, {"resolution", "native"}, {"widescreen", "on"}, {"vsync", "on"},
+        {"frame_limit", "off"}, {"rumble", "on"}, {"controller_deadzone", "6"},
         {NULL, NULL}};
     FILE *f = fopen(path, "w");
     if (!f)
         return;
-    fputs("# TD6 native: options (key = value).\n"
+    fputs("# Hard Truck 2 native: options (key = value).\n"
           "# Every option is listed at its default, commented out: take away the # to change one.\n", f);
     for (int k = 0; def[k][0]; k++) {
         for (int h = 0; help[h][0]; h++)
@@ -151,7 +149,7 @@ int options_save(void)
     int written[64] = {0};
     char line[512];
     if (!in)
-        fputs("# TD6 native: options (key = value).\n"
+        fputs("# Hard Truck 2 native: options (key = value).\n"
               "# Delete a line to get the original behaviour.\n", out);
     while (in && fgets(line, sizeof line, in)) {
         char k[64] = "";

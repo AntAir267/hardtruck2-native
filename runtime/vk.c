@@ -796,7 +796,7 @@ static void rs_sample(double ms, int scene)
 /* Enhanced options: read at start-up and again whenever the in-game page changes one */
 void vkr_options(void)
 {
-    const char *res = option_str("resolution", "original");
+    const char *res = option_str("resolution", "native");
     res_native = 0;
     res_fixed = 1.0f;
     if (!strcasecmp(res, "native"))

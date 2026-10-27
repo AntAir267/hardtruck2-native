@@ -83,6 +83,8 @@ typedef struct Device {
     D3DState st;
     int in_scene;
     uint32_t clipstatus[8];
+    float proj_x;               /* the program's projection x scale (widescreen changes ours) */
+    int proj_set;               /* (proj_x is known: the program set a projection) */
 } Device;
 
 typedef struct VBuf {
@@ -1571,6 +1573,19 @@ static const char *mat_str(uint32_t m, char *buf, size_t n)
     return buf;
 }
 
+/* Widescreen (widescreen.c): the projection in use gets the widened x scale while it is a
+   perspective one with a viewport as wide as the render target; the program's own is kept */
+#include "widescreen.h"
+static void ws_projection(Device *d)
+{
+    if (!d->proj_set)
+        return;
+    Mat4 *p = &d->st.xf[3];
+    int persp = p->m[2][3] == 1.0f && p->m[3][3] == 0.0f;
+    uint32_t rtw = d->st.rt ? d->st.rt->width : 0;
+    p->m[0][0] = widescreen_projection_x(d->proj_x, persp, d->st.vp.x, d->st.vp.w, rtw, p->m[1][1]);
+}
+
 GMETHOD(dev_SetTransform, 3)
 {
     Device *d = DEV(ARG(0));
@@ -1579,6 +1594,11 @@ GMETHOD(dev_SetTransform, 3)
     if (!m || t >= XF_MAX || t == 0)
         return DDERR_INVALIDPARAMS;
     memcpy(&d->st.xf[t], gptr(m), sizeof(Mat4));
+    if (t == 3) {
+        d->proj_x = d->st.xf[3].m[0][0];
+        d->proj_set = 1;
+        ws_projection(d);
+    }
     LOG(LOG_D3D, "IDirect3DDevice7::SetTransform(%s, %s)", t < 7 ? xf_names[t] : t >= 16 ? "TEXTURE" : "?", mat_str(m, ms, sizeof ms));
     return D3D_OK;
 }
@@ -1590,6 +1610,8 @@ GMETHOD(dev_GetTransform, 3)
     if (!m || t >= XF_MAX || t == 0)
         return DDERR_INVALIDPARAMS;
     memcpy(gptr(m), &d->st.xf[t], sizeof(Mat4));
+    if (t == 3 && d->proj_set)
+        WF32(m, d->proj_x);             /* the program's own x scale */
     LOG(LOG_D3D, "IDirect3DDevice7::GetTransform(%u)", t);
     return D3D_OK;
 }
@@ -1603,7 +1625,13 @@ GMETHOD(dev_MultiplyTransform, 3)
         return DDERR_INVALIDPARAMS;
     Mat4 a;
     memcpy(&a, gptr(m), sizeof a);
+    if (t == 3 && d->proj_set)
+        d->st.xf[3].m[0][0] = d->proj_x;
     mat_mul(&d->st.xf[t], &a, &d->st.xf[t]);
+    if (t == 3) {
+        d->proj_x = d->st.xf[3].m[0][0];
+        ws_projection(d);
+    }
     LOG(LOG_D3D, "IDirect3DDevice7::MultiplyTransform(%u, %s)", t, mat_str(m, ms, sizeof ms));
     return D3D_OK;
 }
@@ -1625,6 +1653,7 @@ GMETHOD(dev_SetViewport, 2)
     d->st.vp.h = h;
     d->st.vp.minz = mn;
     d->st.vp.maxz = mx;
+    ws_projection(d);
     return D3D_OK;
 }
 
