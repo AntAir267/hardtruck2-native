@@ -58,7 +58,7 @@ static const char *const help[][2] = {
                          "world drawn with more precision, then dithered: less banding in the sky and fog)"},
     {"vsync", "vsync: on (frames wait for the screen) or off"},
     {"frame_limit", "frame_limit: off, screen (3 under the screen's refresh, for G-Sync / FreeSync) or a rate"},
-    {"render_thread", "render_thread: on (drawing on a thread of its own: faster) or off"},
+    {"render_thread", "render_thread: off (the default) or on (drawing on a thread of its own; on, the widescreen sides mix frames: being fixed)"},
     {"rumble", "rumble: on (the game's force feedback on the controller's motors) or off"},
     {"controller_deadzone", "controller_deadzone: the sticks' dead zone against resting drift, percent"},
     {NULL, NULL}};
@@ -70,7 +70,7 @@ static void write_template(const char *path)
     static const char *const def[][2] = {
         {"display", "window"}, {"resolution", "native"}, {"widescreen", "on"}, {"antialiasing", "off"},
         {"textures", "original"}, {"colour_precision", "original"}, {"vsync", "on"},
-        {"frame_limit", "off"}, {"render_thread", "on"}, {"rumble", "on"}, {"controller_deadzone", "6"},
+        {"frame_limit", "off"}, {"render_thread", "off"}, {"rumble", "on"}, {"controller_deadzone", "6"},
         {NULL, NULL}};
     FILE *f = fopen(path, "w");
     if (!f)

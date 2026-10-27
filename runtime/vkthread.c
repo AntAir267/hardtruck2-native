@@ -10,8 +10,12 @@
    meshes for the far terrain and the shadows, new options. The two threads never run vk.c's code at
    the same time.
 
-   Off in test runs (--test: one thread, as before) and with "render_thread = off" in options.txt
-   (HT2_RENDER_THREAD=0/1 overrides): each call then runs its vk.c function at once.
+   Off in test runs (--test: one thread, as before) and by default ("render_thread = on" in
+   options.txt turns it on; HT2_RENDER_THREAD=0/1 overrides): each call then runs its vk.c function
+   at once. Off by default since 2026-10-27: with it, in real time, widescreen's sides showed parts
+   of other frames (flicker, the scene repeated at the sides) [verified: real-time off-screen runs
+   with and without it, the same drive; not seen in --test, which has no thread]. Cause not found
+   yet [guess: the game's flip swaps surfaces while this thread still draws the frame before].
 
    vk.c reads what the game side had set when a call was made (the distance fade and fog, the smoke's
    puff, the widescreen HUD's place in the frame, the gamma ramp) from vkr: the game thread is
@@ -455,7 +459,7 @@ static int going(void)
         return 0;
     tried = 1;
     const char *e = getenv("HT2_RENDER_THREAD");
-    int want = e && *e ? atoi(e) != 0 : !deterministic && option_bool("render_thread", 1);
+    int want = e && *e ? atoi(e) != 0 : !deterministic && option_bool("render_thread", 0);
     if (!want)
         return 0;
     head = tail = block_new(BLOCK);

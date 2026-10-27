@@ -251,6 +251,7 @@ work/rea (king.exe, GetAVIInfo.dll). Lockstep: tools/lockstep.py --seed <folder 
   Headless --test runs go: MFC start-up, TRUCK.INI and kmjin.ini, LOAD.RES, DirectPlay, the
   player profile, DirectDraw/Direct3D 7 at 640x480x16, menu fonts, the loading screen's overlay.
 - 2026-10-26 (night): native resolution and Hor+ widescreen by default.
+- 2026-10-27: render thread off by default: with it, in real time, widescreen's sides showed parts of other frames (flicker, scenery repeated at the sides; Ant's screenshot; reproduced off-screen without --test, gone with render_thread=off). Not seen in --test (no thread there). Cause open [guess: flip vs the thread's frame behind]; fix it before turning the thread back on.
 - 2026-10-27: Ant's first real full-screen run: the host window kept the first frame window's 100x200 (hidden/shown on Wayland lost the full screen; now handed over before hiding), the mouse in window points not game pixels (now mapped through the picture's place), side culling (pyramid hooks). HT2_DUMP_PRESENT works in a window (swapchain read back).
 - 2026-10-26 (night, later): MORE OPTIONS page in the GRAPHICS screen (menu.c); RB = Tab in menus; Escape/B leaves a sub-screen. Lockstep matches through frame 408 (reference build runs hooks; test clock main-thread only).
 - 2026-10-26 (evening): music (DirectShow) and movies (IGetAVIInfo + Indeo 5).
