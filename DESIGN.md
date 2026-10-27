@@ -74,7 +74,7 @@ knowledge (addresses only).
   640x480x16 for the menus) on the Vulkan renderer. Tests use a TRUCK.INI with d3d=on in the
   test user folder.
 
-### Open
+### Open (see the handoff)
 - Movies: the game reads kotr.avi itself (mmio) and decodes through MSVFW32 (Indeo 5), and asks
   GetAVIInfo.dll (an ATL COM server shipped with the game, CLSID {568df44f-...}, interface
   {5f3b918f-...} through IID 0x67e348 [guess: which is the class and which the interface]) for the
@@ -83,34 +83,69 @@ knowledge (addresses only).
 - Reference: run the original under Proton to compare (no Wine or virtual display installed;
   GE-Proton and gamescope are).
 
-### Display modes the game uses [verified: run logs 2026-10-26]
-- TRUCK.INI [ENV]: d3d (on = Direct3D 7), fullscreen, xres/yres, cres (colour bytes). With
-  d3d=on, fullscreen=on: the loading screen is a Direct3D session (640x480x16, or 800x600x16 with
-  cres=2), then DirectDraw is released and made again for the menus at 800x600x8 with a
-  256-colour palette (mode search 0x5d4240: 1 byte per pixel = DDPF_PALETTEINDEXED8). The
-  runtime offers 8-bit modes now and the Vulkan upload turns indexes into colours
-  (ddraw_palette_argb; SetEntries marks 8-bit surfaces dirty).
-- Menus present by Blt(primary <- an 800x600 P8 system-memory back buffer) each frame.
+### 5. Renderer and settings (2026-10-26)
+- The game as GOG ships it (TRUCK.INI d3d=off, cres=1) is the port's: menus are 8-bit
+  palettized DirectDraw at 800x600 (mode search 0x5d4240: 1 byte per pixel =
+  DDPF_PALETTEINDEXED8), presented each frame by Blt(primary <- an 800x600 P8 system-memory back
+  buffer); the loading screen too; the 3D world is Direct3D 7 (640x480x16, DrawPrimitive /
+  DrawIndexedPrimitive[Strided]) even with d3d=off [verified: run logs, frame dumps]. The runtime
+  offers 8-bit modes and the Vulkan upload turns indexes into colours (ddraw_palette_argb;
+  SetEntries marks 8-bit surfaces dirty). The software rasterizer (swrast, used when Vulkan is
+  off, e.g. a plain --test run) has no palettes: test runs that look at frames set
+  HT2_GPU_OFFSCREEN=1.
+- d3d=on: the loading screen becomes a Direct3D session (640x480x16, or 800x600x16 with cres=2)
+  and its first overlay image crashes at 0x5d6f45 (a non-square on-demand 16-bit image copied
+  from NULL). The original does the same under Wine (GE-Proton 10-32, gamescope headless,
+  work/ref-wine) [verified]: GOG ships d3d=off probably for this. game.c's image_ready hook
+  avoids the crash, but the menus then show the loading screen's 16-bit surfaces in their 8-bit
+  screens (black). Not pursued: d3d=off already gives Direct3D for the 3D world.
+- fullscreen must be on: the game's windowed mode draws through GDI (nothing shown). game.c makes
+  the user folder's TRUCK.INI from the game's at the first start and keeps fullscreen=on; the
+  port's own window (or full screen) shows the game's picture scaled.
+- The test clock: the game calibrates its clock over Sleep(2000) at start-up (0x6035f0, against
+  timeGetTime); --test runs' Sleep on the main thread moves the virtual clock (other threads'
+  Sleep is real time: the music thread retries DirectShow every 0.4 s).
 
-## Handoff (2026-10-26, end of the first session)
-State: builds clean; a headless --test run with work/testuser/TRUCK.INI (d3d=on,
-fullscreen=on) runs 600 frames into the menu loop with no crash. Frames dump black.
-Next problem: every menu frame Blts surf#91 (640x1200 RGB565: the loading screen's 16-bit strip
-surface of c\backCtrl.txr, from the released Direct3D-session DirectDraw) into the 8-bit back
-buffer; RGB565 -> P8 gives black. The image record still has flag 2 (has a surface) and +0x48
-pointing at the old surface, so nothing rebuilds it for 8-bit. To find: what the game does to
-its images when it releases DirectDraw (Windows would hand back DDERR_SURFACELOST/invalid
-objects for the old surfaces; the earlier "ddrw mask fail ... invalid DirectDraw object"
-warnings are those calls) and whether game.c's image_ready fix (pixels kept for non-square
-images at 16-bit) is right or should go once the mode switch is understood. 0x5da550 is the
-.b3d world loader (it rebuilds surfaces of a module's images), not the menu's.
-Ghidra: REA snapshot work/rea/king.rea-snapshot (reopen king.exe with it). work/king.asm is
-objdump's disassembly (regenerate if missing).
-Test command shape: build/ht2 --test --user work/testuser --frames N --log ddraw,d3d,win;
-HT2_DUMP_FRAMES=<dir> HT2_DUMP_EVERY=<n> for frame dumps (PPM).
+### 6. Controllers (2026-10-26, padgame.c)
+- The game reads joysticks with DirectInput (c_dfDIJoystick, listed once at start-up; dead zone
+  20 % except X) and maps them with kmjin.ini (section = DirectInput product name; "J A2+",
+  "J B1", "J povB1"). The keyboard comes through window messages.
+- Every controller is shown as "Xbox Controller"; the user folder's kmjin.ini is the game's with
+  our section first (written when missing). Layout: left stick steers, RT accelerates, LT brakes
+  (the triggers are one axis: the profile says ACCEL = J A2+, which the game's screen shows as
+  A2-), RB/LB gear up/down, A parking brake, B horn, X start engine, Y hook trailer, Back map, L3
+  headlights, D-pad up pager / down wipers / right load cargo / left unload. The camera actions
+  take buttons only (axes 4/5 and button 10 are not accepted there), so while driving the right
+  stick and R3 are keys: look left/right (Del/PgDn), camera closer/further (Home/End), outside
+  view (V). Start is Escape while driving; in the 8-bit menus D-pad/left stick are the arrow
+  keys, A/Start Return, B Escape.
+- A new player profile's device is the controller when one is connected (hook on 0x5275c0: as
+  the CONTROLLERS screen's arrow, 0x530730(1) and 0x512ce0 on the game object, then [EFFECTS]
+  control=1). An existing profile keeps its choice.
+- Verified headless with the scripted controller: menus, a fresh install driving with RT and
+  the left stick, look right, outside view. Not yet tried with a real pad by Ant. No rumble yet
+  (whether the game plays force feedback is not checked).
+
+## Handoff (2026-10-26)
+State: playable headless and in a window: menus, loading, driving, keyboard and controller.
+Installed with make install (applications menu "Hard Truck 2: King of the Road",
+~/.local/opt/hardtruck2-native). Committed locally (no GitHub remote: creating the repository
+was refused by the permission check; Ant to decide).
+Missing: music (the game plays MUSIC\*.mp3 through DirectShow: CoCreateInstance of
+CLSID_FilterGraph {e436ebb3-...} / IGraphBuilder from its music thread; not provided), movies
+(kotr.avi etc.: Indeo 5 through MSVFW32 + GetAVIInfo.dll's IGetAVIInfo; its behaviour is
+specified in work/decomp/avi/SPEC.md), rumble, higher resolutions / widescreen.
+Tests: build/ht2 --test --user work/testuser (fresh folder: TRUCK.INI and kmjin.ini are made);
+HT2_PAD="frame:BUTTON*hold,frame:AXIS=value*hold" (no PLUG: connected from start-up), HT2_KEYS,
+HT2_GPU_OFFSCREEN=1 HT2_DUMP_FRAMES=<dir> HT2_DUMP_EVERY=<n> [HT2_DUMP_FROM=<frame>]. Main menu:
+A A starts a new game (driving from about frame 1400 at the virtual 60 fps). Ghidra snapshots in
+work/rea (king.exe, GetAVIInfo.dll). Lockstep: tools/lockstep.py --seed <folder with TRUCK.INI>.
 
 ## Progress
 
 - 2026-10-26: project made, installer unpacked, translator and runtime forked from td6-native.
   Headless --test runs go: MFC start-up, TRUCK.INI and kmjin.ini, LOAD.RES, DirectPlay, the
   player profile, DirectDraw/Direct3D 7 at 640x480x16, menu fonts, the loading screen's overlay.
+- 2026-10-26 (later): menus on Vulkan (8-bit palettes); the keyboard reaches the game (the
+  window layer lost its main window when the first frame window was destroyed); loading screen
+  and driving; the test clock fix; controllers; make install.
