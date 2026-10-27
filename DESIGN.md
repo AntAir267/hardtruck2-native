@@ -148,6 +148,14 @@ knowledge (addresses only).
   the camera's [RENDER] xpyramid/ypyramid (0.8/0.6 defaults, TRUCK.INI 1.2/0.9) go to the camera
   object too, 0x5df9c5]. Off in --test runs unless HT2_WIDESCREEN=1.
 
+### 9. Options in the game's own menu (Ant, 2026-10-26)
+GAME-GOALS.md (~/DevWork/Games) asks for every setting a port adds to be in the game's own
+options menu, in its style; options.txt stays for testing and power users. Ant chose the
+game's own menu over an overlay. Defaults: GAME-GOALS says the original game; Ant chose to keep
+native resolution and widescreen on by default for this port (everything else original).
+Under way: mapping the GRAPHICS screen's code and the menu toolkit (work/decomp/menu/MENU.md)
+for a new page.
+
 ### 8. options.txt (2026-10-26)
 Written at the first start (outside test runs) listing every option at its default, commented
 out (options.c): display, resolution (native default), widescreen (on), antialiasing (off | 4x),
