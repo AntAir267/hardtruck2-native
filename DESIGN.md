@@ -151,8 +151,9 @@ knowledge (addresses only).
 ### 9. Options in the game's own menu (Ant, 2026-10-26)
 GAME-GOALS.md (~/DevWork/Games) asks for every setting a port adds to be in the game's own
 options menu, in its style; options.txt stays for testing and power users. Ant chose the
-game's own menu over an overlay. Defaults: GAME-GOALS says the original game; Ant chose to keep
-native resolution and widescreen on by default for this port (everything else original).
+game's own menu over an overlay. Defaults: native resolution and widescreen on (Ant's choice; GAME-GOALS allows enhancements
+on at launch as long as the original look stays reachable in the options). Everything else
+starts original.
 Under way: mapping the GRAPHICS screen's code and the menu toolkit (work/decomp/menu/MENU.md)
 for a new page.
 
