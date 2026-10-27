@@ -56,6 +56,20 @@ build/ht2: $(GEN_OBJ) $(RT_OBJ)
 build/obj:
 	mkdir -p $@
 
+# make install: the game in ~/.local/opt/hardtruck2-native with an applications-menu entry and the
+# game's own icon (taken from the user's king.exe)
+PREFIX ?= $(HOME)/.local/opt/hardtruck2-native
+APPS ?= $(HOME)/.local/share/applications
+install: all
+	mkdir -p $(PREFIX) $(APPS)
+	cp build/ht2 $(PREFIX)/ht2.new && mv -f $(PREFIX)/ht2.new $(PREFIX)/ht2
+	-$(PY) tools/icon.py $(GAME)/king.exe $(PREFIX)/ht2.png
+	printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Name=Hard Truck 2: King of the Road' \
+		'Comment=Hard Truck 2 recompiled for Linux, on Vulkan, with controller support' \
+		'Exec=$(PREFIX)/ht2' 'Icon=$(PREFIX)/ht2.png' 'Categories=Game;' \
+		'StartupWMClass=hardtruck2-native' 'Terminal=false' > $(APPS)/hardtruck2-native.desktop
+	@echo "installed in $(PREFIX); the applications menu has Hard Truck 2"
+
 # Function-level check against the original code in Unicorn (tests/fncheck.c)
 UNICORN ?= $(firstword $(wildcard .venv/lib/python3*/site-packages/unicorn))
 build/obj/rt_main_nomain.o: runtime/main.c runtime/*.h gen/funcs.h | build/obj
@@ -77,4 +91,4 @@ check: build/fncheck
 clean:
 	rm -rf build gen
 
-.PHONY: all clean shaders check
+.PHONY: all clean shaders check install

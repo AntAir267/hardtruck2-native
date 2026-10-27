@@ -16,6 +16,7 @@
    pixels before the surface is made. Square images (textures) are not changed. */
 #include "runtime.h"
 #include "funcs.h"
+#include <unistd.h>
 
 static int image_ready_hook(CPU *c)
 {
@@ -30,7 +31,48 @@ static int image_ready_hook(CPU *c)
     return 0;
 }
 
+/* TRUCK.INI in the user folder (the game reads and writes it there): made from the game's at the
+   first start, and always with fullscreen=on - the port's window shows the game's screen; the
+   game's own windowed mode draws through GDI [verified: run 2026-10-26, nothing shown]. */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+static void truck_ini(void)
+{
+    char upath[1200], gpath[1200];
+    snprintf(upath, sizeof upath, "%s/TRUCK.INI", user_dir);
+    snprintf(gpath, sizeof gpath, "%s/TRUCK.INI", game_dir);
+    FILE *f = fopen(upath, "rb");
+    if (!f) {
+        char lower[1200];
+        snprintf(lower, sizeof lower, "%s/truck.ini", user_dir);
+        f = fopen(lower, "rb");
+        if (f) snprintf(upath, sizeof upath, "%s", lower);
+    }
+    if (!f && !(f = fopen(gpath, "rb")))
+        return;
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *t = malloc(n + 1);
+    n = (long)fread(t, 1, n, f);
+    t[n] = 0;
+    fclose(f);
+    char *p = strcasestr(t, "\nfullscreen=off");
+    int fresh = access(upath, 0) != 0;
+    if (p || fresh) {
+        if (p) memcpy(p + 12, "on ", 3);           /* "off" -> "on " (the game trims the value) */
+        FILE *o = fopen(upath, "wb");
+        if (o) { fwrite(t, 1, n, o); fclose(o); }
+        LOG(LOG_ALWAYS, "TRUCK.INI: %s%s", fresh ? "made from the game's" : "",
+            p ? (fresh ? ", fullscreen=on" : "fullscreen=on") : "");
+    }
+    free(t);
+}
+
 void game_init(void)
 {
+    truck_ini();
     hook_image_ready = image_ready_hook;
 }
