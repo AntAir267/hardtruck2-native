@@ -12,7 +12,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def run(binary, args, work, name, keys, extra):
     user = os.path.join(work, 'user_' + name)
     shutil.rmtree(user, ignore_errors=True)
-    os.makedirs(user)
+    if args.seed:
+        shutil.copytree(args.seed, user)    # the user folder starts as this one (settings files)
+    else:
+        os.makedirs(user)
     env = dict(os.environ, HT2_KEYS=keys or '')
     env.pop('HT2_DUMP_FRAMES', None)
     cmd = [os.path.join(ROOT, 'build', binary), '--game', args.game, '--user', user, '--test',
@@ -44,6 +47,7 @@ def main():
     ap.add_argument('--frames', type=int, default=1200)
     ap.add_argument('--work', default=os.path.join(ROOT, 'work', 'lockstep'))
     ap.add_argument('--no-bisect', action='store_true')
+    ap.add_argument('--seed', help='a folder each run user folder starts as a copy of')
     args = ap.parse_args()
     work = args.work
     os.makedirs(work, exist_ok=True)

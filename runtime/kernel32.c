@@ -386,6 +386,7 @@ API(KERNEL32, MultiByteToWideChar, 6)
 {
     uint32_t src = ARG(2), dst = ARG(4), cap = ARG(5);
     int32_t n = (int32_t)ARG(3);
+    if (!src) { set_last_error(87); return 0; }     /* ERROR_INVALID_PARAMETER, as Windows */
     if (n < 0) n = strlen(gptr(src)) + 1;
     if (!cap) return n;
     if ((uint32_t)n > cap) { set_last_error(122); return 0; }
@@ -398,6 +399,7 @@ API(KERNEL32, WideCharToMultiByte, 8)
 {
     uint32_t src = ARG(2), dst = ARG(4), cap = ARG(5);
     int32_t n = (int32_t)ARG(3);
+    if (!src) { set_last_error(87); return 0; }
     if (n < 0) { n = 0; while (R16(src + 2 * n)) n++; n++; }
     if (ARG(7)) W32(ARG(7), 0);
     if (!cap) return n;

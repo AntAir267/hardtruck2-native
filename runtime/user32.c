@@ -253,7 +253,8 @@ static uint32_t sendmsg(CPU *c, uint32_t hwnd, uint32_t msg, uint32_t wp, uint32
 static uint32_t input_hwnd(void)
 {
     if (focus_hwnd && win_of(focus_hwnd)) return focus_hwnd;
-    return main_hwnd;
+    if (main_hwnd) return main_hwnd;
+    return active_hwnd && win_of(active_hwnd) ? active_hwnd : 0;
 }
 
 /* ------------------------------------------------------------------ hooks */
@@ -452,11 +453,19 @@ static void destroy_window(CPU *c, uint32_t hwnd)
     if (focus_hwnd == hwnd) focus_hwnd = 0;
     if (active_hwnd == hwnd) active_hwnd = 0;
     if (capture_hwnd == hwnd) capture_hwnd = 0;
-    if (main_hwnd == hwnd) {
-        main_hwnd = 0;
-        host_window_show(0);
-    }
     w->used = 0;
+    if (main_hwnd == hwnd) {
+        /* another visible top-level window takes over the host window (Hard Truck 2 destroys
+           its first frame window once the game's own is up) */
+        main_hwnd = 0;
+        for (int i = 0; i < MAXWIN; i++)
+            if (wins[i].used && !(wins[i].style & WS_CHILD) && (wins[i].style & WS_VISIBLE)) {
+                main_hwnd = wins[i].hwnd;
+                break;
+            }
+        if (!main_hwnd)
+            host_window_show(0);
+    }
 }
 
 API(USER32, DestroyWindow, 1) { if (!win_of(ARG(0))) { set_last_error(1400); return 0; } destroy_window(c, ARG(0)); return 1; }
