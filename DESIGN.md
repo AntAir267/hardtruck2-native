@@ -166,6 +166,17 @@ smooth and high change the picture and run. Not listed: antialiasing taa / fsr /
 temporal anti-aliasing follows TD6's scene; not checked here, FSR 2 and DLSS absent on the 890M),
 menu_fps (no menu/driving test for this game: it does nothing), render_scale (temporal only).
 
+### 10. Roadmap after the options page (GAME-GOALS.md, 2026-10-26)
+- Fully functional first: a play-through start to finish with no known crashes (Ant testing),
+  then the project's checks (lockstep with --seed, fncheck) passing on a race.
+- Overhead: no measurements yet. To take before any change: frame time, game-thread CPU, GPU
+  time and load time (start to menu, menu to driving) on the 890M at Ant's resolution, with the
+  render thread on. Likely simple wins: the 8-bit menus upload the whole 800x600 back buffer
+  through the palette every frame (only on change would do), per-call lookups in d3d.c.
+  Big restructures (direct Vulkan for the game's draws) wait until the game is fully functional.
+- Big enhancements (ray tracing, AO, volumetrics) wait for the same; renderer from td6-native
+  already has the depth/motion data and toggled passes.
+
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
 Installed with make install (applications menu "Hard Truck 2: King of the Road",
