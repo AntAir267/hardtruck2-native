@@ -672,16 +672,16 @@ int main(int argc, char **argv)
 #endif
     snprintf(game_dir, sizeof game_dir, "%s/game", user_dir);
     const char *logpath = NULL;
-#ifdef _WIN32
-    /* Windows: started without arguments (the program double-clicked) it plays as the Start-menu entry
-       does: in a window (options.txt's display decides full screen), the log in the user folder */
+    /* Started without arguments (the applications-menu entry, or the program double-clicked) it
+       plays in a window (options.txt's display decides full screen), the log in the user folder;
+       headless is for test runs, which always pass arguments [verified: 2026-10-26, the Linux menu
+       entry ran the game headless: no window] */
     static char default_log[1100];
     if (argc == 1) {
         headless = 0;
         snprintf(default_log, sizeof default_log, "%s/last-run.log", user_dir);
         logpath = default_log;
     }
-#endif
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
         const char *v = i + 1 < argc ? argv[i + 1] : NULL;
