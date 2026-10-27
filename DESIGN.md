@@ -96,7 +96,7 @@ knowledge (addresses only).
 - d3d=on: the loading screen becomes a Direct3D session (640x480x16, or 800x600x16 with cres=2)
   and its first overlay image crashes at 0x5d6f45 (a non-square on-demand 16-bit image copied
   from NULL). The original does the same under Wine (GE-Proton 10-32, gamescope headless,
-  work/ref-wine) [verified]: GOG ships d3d=off probably for this. game.c's image_ready hook
+  work/ref-wine: its logs; the game copy and Proton prefix were deleted - to redo, copy the game folder there with the test TRUCK.INI, drop GOG's ddraw.dll, and run GE-Proton's proton script with STEAM_COMPAT_DATA_PATH in that folder under gamescope --backend headless) [verified]: GOG ships d3d=off probably for this. game.c's image_ready hook
   avoids the crash, but the menus then show the loading screen's 16-bit surfaces in their 8-bit
   screens (black). Not pursued: d3d=off already gives Direct3D for the 3D world.
 - fullscreen must be on: the game's windowed mode draws through GDI (nothing shown). game.c makes
