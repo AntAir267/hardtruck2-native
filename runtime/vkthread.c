@@ -10,12 +10,12 @@
    meshes for the far terrain and the shadows, new options. The two threads never run vk.c's code at
    the same time.
 
-   Off in test runs (--test: one thread, as before) and by default ("render_thread = on" in
-   options.txt turns it on; HT2_RENDER_THREAD=0/1 overrides): each call then runs its vk.c function
-   at once. Off by default since 2026-10-27: with it, in real time, widescreen's sides showed parts
-   of other frames (flicker, the scene repeated at the sides) [verified: real-time off-screen runs
-   with and without it, the same drive; not seen in --test, which has no thread]. Cause not found
-   yet [guess: the game's flip swaps surfaces while this thread still draws the frame before].
+   Off in test runs (--test: one thread, as before) and with "render_thread = off" in options.txt
+   (HT2_RENDER_THREAD=0/1 overrides): each call then runs its vk.c function at once. Everything
+   vk.c reads from the game side has to come through CtxSnap/StateSnap: ws_world_aspect read live
+   (the game sets two widened cameras a frame, the world's and the cockpit's) made the world's
+   draws "not widened" a frame later - the 4:3 view in the middle, other frames at the sides
+   [verified: 2026-10-27, HT2_RENDER_THREAD=1 in --test; fixed, thread on and off pixel-identical].
 
    vk.c reads what the game side had set when a call was made (the distance fade and fog, the smoke's
    puff, the widescreen HUD's place in the frame, the gamma ramp) from vkr: the game thread is
@@ -190,6 +190,7 @@ typedef struct {
     int smoke_parts, has_puff;
     VkPuff puff;
     int ws_race_depth, ws_hud_depth, ws_menu_depth;
+    float ws_world_aspect;
 } CtxSnap;
 
 static CtxSnap ctx_sent;
@@ -216,6 +217,7 @@ static void send_ctx(void)
     c.ws_race_depth = ws_race_depth;
     c.ws_hud_depth = ws_hud_depth;
     c.ws_menu_depth = ws_menu_depth;
+    c.ws_world_aspect = ws_world_aspect;
     if (ctx_valid && !memcmp(&c, &ctx_sent, sizeof c))
         return;
     ctx_sent = c;
@@ -253,6 +255,7 @@ static void ctx_inline(void)
     vkr.ws_race_depth = ws_race_depth;
     vkr.ws_hud_depth = ws_hud_depth;
     vkr.ws_menu_depth = ws_menu_depth;
+    vkr.ws_world_aspect = ws_world_aspect;
 }
 
 /* ------------------------------------------------------------------ the render thread */
@@ -275,6 +278,7 @@ static void run(const Cmd *c)
         vkr.ws_race_depth = s->ws_race_depth;
         vkr.ws_hud_depth = s->ws_hud_depth;
         vkr.ws_menu_depth = s->ws_menu_depth;
+        vkr.ws_world_aspect = s->ws_world_aspect;
         break;
     }
     case C_STATE: {
@@ -459,7 +463,7 @@ static int going(void)
         return 0;
     tried = 1;
     const char *e = getenv("HT2_RENDER_THREAD");
-    int want = e && *e ? atoi(e) != 0 : !deterministic && option_bool("render_thread", 0);
+    int want = e && *e ? atoi(e) != 0 : !deterministic && option_bool("render_thread", 1);
     if (!want)
         return 0;
     head = tail = block_new(BLOCK);

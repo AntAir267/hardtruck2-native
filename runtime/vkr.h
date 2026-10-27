@@ -6,7 +6,8 @@
 #include "vk.h"
 
 /* What the game side had set when a call was made, as vk.c reads it (vk.c's vk_fade, vk_nocast,
-   vk_fog_end, vk_fog_start, vk_smoke_parts, vk_puff, ws_*_depth and gfx_gamma are these on its side) */
+   vk_fog_end, vk_fog_start, vk_smoke_parts, vk_puff, ws_*_depth, ws_world_aspect and gfx_gamma are
+   these on its side) */
 typedef struct {
     uint32_t fade;
     int nocast;
@@ -14,6 +15,10 @@ typedef struct {
     int smoke_parts;
     const VkPuff *puff;
     int ws_race_depth, ws_hud_depth, ws_menu_depth;
+    float ws_world_aspect;      /* the widened camera's y/x scale when the call was made: the game
+                                   sets two (the world's 640x430 view, the cockpit's), so a value
+                                   read later (the render thread a frame behind) took the world for
+                                   not widened [verified: 2026-10-27, render thread in --test] */
     uint16_t gamma[3][256];
 } VkrCtx;
 extern VkrCtx vkr;

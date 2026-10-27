@@ -83,6 +83,7 @@ VkrCtx vkr;
 #define ws_race_depth (vkr.ws_race_depth)
 #define ws_hud_depth (vkr.ws_hud_depth)
 #define ws_menu_depth (vkr.ws_menu_depth)
+#define ws_world_aspect (vkr.ws_world_aspect)
 #define gfx_gamma (vkr.gamma)
 
 #define FRAMES 2
