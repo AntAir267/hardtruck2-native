@@ -24,7 +24,17 @@ extern const int x87_special_count;
 typedef struct {
     uc_engine *uc;
     uint32_t fs_base;                   /* what the fs descriptor currently points at */
+    void (*pending)(CPU *c);            /* a hooked function reached (HOOK_TRAMP) */
 } Engine;
+
+/* Hooked functions (the build config's HOOKS) run as in the translated build: their wrapper (the
+   runtime's hook, then the translated original if the hook lets it) instead of the original in
+   Unicorn, so both builds do the same there and lockstep compares the rest. Reaching one moves
+   the emulation to an unmapped address, where it stops as for a thunk. */
+extern const FuncEntry hooked_table[];
+extern const int hooked_count;
+#define HOOK_TRAMP 0x7efd0000u
+static int ref_debug;                   /* HT2_REF_DEBUG: log hooked functions and nested calls */
 
 static __thread Engine *eng;
 
@@ -96,6 +106,16 @@ static void hook_x87(uc_engine *u, uint64_t addr, uint32_t size, void *ud)
     uc_reg_write(u, UC_X86_REG_EIP, &next);
 }
 
+static void hook_entry(uc_engine *u, uint64_t addr, uint32_t size, void *ud)
+{
+    (void)size;
+    if (ref_debug)
+        LOG(LOG_ALWAYS, "ref: hooked %08x reached", (uint32_t)addr);
+    eng->pending = (void (*)(CPU *c))ud;
+    uint32_t t = HOOK_TRAMP;
+    uc_reg_write(u, UC_X86_REG_EIP, &t);
+}
+
 /* CPUID and RDTSC as the translated build answers them (runtime/x86.c) */
 static int hook_cpuid(uc_engine *u, void *ud)
 {
@@ -158,6 +178,9 @@ static Engine *engine(void)
     for (int i = 0; i < x87_special_count; i++)
         uc_hook_add(uc, &h, UC_HOOK_CODE, hook_x87, (void *)(uintptr_t)x87_special_op[i],
                     x87_special_addr[i], x87_special_addr[i]);
+    for (int i = 0; i < hooked_count; i++)
+        uc_hook_add(uc, &h, UC_HOOK_CODE, hook_entry, (void *)hooked_table[i].fn,
+                    hooked_table[i].addr, hooked_table[i].addr);
     /* flat code/data (ring 3), fs -> TEB (set per run), stack (ring 0) */
     set_gdt(uc, 14, 0, 0xfffff, 0xfb, 0xc);
     set_gdt(uc, 15, 0, 0xfffff, 0xf3, 0xc);
@@ -229,35 +252,95 @@ static void from_uc(Engine *e, CPU *c)
     }
 }
 
+static void ref_run(CPU *c, Engine *e, uint32_t target, uint32_t until, uint32_t until_esp);
+
 /* Run the program from `target` until it returns to the sentinel its caller pushed. */
 static void ref_icall(CPU *c, uint32_t target)
 {
     Engine *e = engine();
-    if (R32(c->esp) != SENTINEL)
-        fatal("reference build: call to %08x without a sentinel return address", target);
+    /* from translated code (a hooked function's original, run as in the translated build): a
+       runtime function directly; program code until it comes back to the return address the
+       translated code pushed, with the stack as the call left it (the stack is not touched: a
+       swapped-in sentinel showed in memory while the call ran) */
+    if (thunk_name(target)) {
+        if (!call_thunk(c, target))
+            fatal("reference build: bad thunk %08x", target);
+        return;
+    }
+    uint32_t ra = R32(c->esp);
+    if (ref_debug && ra != SENTINEL)
+        LOG(LOG_ALWAYS, "ref: translated calls %08x, returns to %08x, call %lu", target, ra, api_calls);
+    if (ra == SENTINEL)
+        ref_run(c, e, target, SENTINEL, 0);
+    else
+        ref_run(c, e, target, ra, c->esp + 4);
+    c->ret = ra;
+}
+
+/* until_esp 0: the first time `until` is reached; else when it is reached with esp at or above
+   until_esp (a callee's "ret n" pops its arguments too; a deeper call returning to the same
+   address has esp below it and goes on, one instruction at a time past it) */
+static void ref_run1(CPU *c, Engine *e, uint32_t target, uint32_t until, uint32_t until_esp);
+static void ref_run(CPU *c, Engine *e, uint32_t target, uint32_t until, uint32_t until_esp)
+{
+    ref_run1(c, e, target, until, until_esp);
+    if (until != SENTINEL)
+        uc_ctl_remove_cache(e->uc, until, until + 1);
+}
+
+static void ref_run1(CPU *c, Engine *e, uint32_t target, uint32_t until, uint32_t until_esp)
+{
     uint32_t pc = target;
+    int step = 0;
     for (;;) {
         to_uc(e, c);
-        uc_err err = uc_emu_start(e->uc, pc, SENTINEL, 0, 0);
+        /* Unicorn checks `until` only in code it translates afterwards: code at a return address
+           in the middle of the program was usually translated before, so its cached block is
+           dropped first (and again when done, so the stop does not stay in it) [verified: the
+           GRAPHICS constructor's hook ran on in the original code past its first call] */
+        if (until != SENTINEL && !step)
+            uc_ctl_remove_cache(e->uc, until, until + 1);
+        uc_err err = step ? uc_emu_start(e->uc, pc, SENTINEL, 0, 1) : uc_emu_start(e->uc, pc, until, 0, 0);
         uint32_t eip;
         uc_reg_read(e->uc, UC_X86_REG_EIP, &eip);
         from_uc(e, c);
-        if (eip == SENTINEL) {
-            c->ret = SENTINEL;          /* the program's ret already popped it */
-            return;
+        int was_step = step;
+        step = 0;
+        if (eip == until) {
+            if (!until_esp || c->esp >= until_esp) {
+                c->ret = until;         /* the program's ret already popped it */
+                return;
+            }
+            if (ref_debug)
+                LOG(LOG_ALWAYS, "ref: %08x reached deeper (esp %08x, want %08x), call %lu", eip, c->esp, until_esp, api_calls);
+            pc = eip;
+            step = 1;
+            continue;
         }
-        if (thunk_name(eip)) {
+        if (eip == HOOK_TRAMP && e->pending) {
+            void (*fn)(CPU *c) = e->pending;
+            e->pending = NULL;
+            if (ref_debug)
+                LOG(LOG_ALWAYS, "ref: hooked function run, esp %08x ret %08x ecx %08x", c->esp, R32(c->esp), c->ecx);
+            fn(c);                      /* returns as the program's ret does: c->ret, esp popped */
+        } else if (thunk_name(eip)) {
             /* a call (or jump) into the runtime: the return address is on the stack */
             if (!call_thunk(c, eip))
                 fatal("reference build: bad thunk %08x", eip);
-            pc = c->ret;
+        } else if (was_step && err == UC_ERR_OK) {
+            pc = eip;
             continue;
+        } else {
+            fatal("reference build: emulation stopped at %08x: %s", eip, uc_strerror(err));
         }
-        fatal("reference build: emulation stopped at %08x: %s", eip, uc_strerror(err));
+        pc = c->ret;
+        if (pc == until && (!until_esp || c->esp >= until_esp))
+            return;
     }
 }
 
 __attribute__((constructor)) static void ref_init(void)
 {
     icall_hook = ref_icall;
+    ref_debug = getenv("HT2_REF_DEBUG") != NULL;
 }

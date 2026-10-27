@@ -116,6 +116,12 @@ def main():
             fh.write('uint32_t reloc_%s = 0x%08xu, limit_%s = %du;\n' % (t['name'], t['base'], t['name'], t['count']))
         for a, h in sorted(prog.hooks.items()):
             fh.write('int (*hook_%s)(CPU *c);\n' % h)
+        # the hooked functions (their wrappers): the reference build runs these as the
+        # translated build does, so the runtime's hooks act in both
+        fh.write('const FuncEntry hooked_table[] = {\n')
+        for a, h in sorted(prog.hooks.items()):
+            fh.write('    {0x%08xu, %s},\n' % (a, prog.fname(a)))
+        fh.write('    {0, 0}\n};\nconst int hooked_count = %d;\n' % len(prog.hooks))
         # literals the runtime may change (CONSTS), at their original values
         for name, d in sorted(getattr(cfg, 'CONSTS', {}).items()):
             fh.write('uint32_t rc_%s = 0x%xu;\n' % (name, d['value']))

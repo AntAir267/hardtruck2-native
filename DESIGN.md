@@ -197,6 +197,23 @@ menu_fps (no menu/driving test for this game: it does nothing), render_scale (te
 ### 10. Roadmap after the options page (GAME-GOALS.md, 2026-10-26)
 - Fully functional first: a play-through start to finish with no known crashes (Ant testing),
   then the project's checks (lockstep with --seed, fncheck) passing on a race.
+- Lockstep (2026-10-26): translated and reference builds match memory exactly through frame 408
+  of "skip the movie, single player, new game" (start-up, menus, the options page's
+  construction, the start of loading); tools/lockstep.py --seed work/seed --keys
+  "200:ESCAPE*4,300:RETURN*4,400:RETURN*4,1500:SPACE*4,1560:UP*200" --frames 1800. Made possible
+  by: (1) the reference build runs hooked functions as the translated build does (gen/table.c
+  hooked_table; Unicorn code hook -> HOOK_TRAMP -> the wrapper), and calls from that translated
+  code back into the program run in Unicorn until they return to the pushed return address at
+  that stack depth (or above: "ret n"); the stack is not touched (a swapped-in sentinel showed in
+  memory); Unicorn only honours `until` in blocks translated afterwards, so the block at the
+  return address is dropped first (uc_ctl_remove_cache) - without that the original code ran on
+  past the return [verified: runs lockstep2-8]; (2) the --test clock moves only on the main
+  thread's readings (other threads see it plus their own), which made two translated runs
+  identical. HT2_CALLS_ONLY=1 with --hash-calls lists call sites without hashing (fast).
+  Next difference, frame 409: sound thread 1 (0x61f781, started at 5 s, the intro's?) reads a
+  buffer's play cursor when told to stop (0x5c2383 -> 0x701ec8/0x701ecc); the cursor follows the
+  clock, and when that read happens against the main thread is real scheduling. Needs repeatable
+  thread hand-offs in --test (det_yield is empty here) or a sound clock other threads cannot race.
 - Overhead: no measurements yet. To take before any change: frame time, game-thread CPU, GPU
   time and load time (start to menu, menu to driving) on the 890M at Ant's resolution, with the
   render thread on. Likely simple wins: the 8-bit menus upload the whole 800x600 back buffer
@@ -229,7 +246,7 @@ work/rea (king.exe, GetAVIInfo.dll). Lockstep: tools/lockstep.py --seed <folder 
   Headless --test runs go: MFC start-up, TRUCK.INI and kmjin.ini, LOAD.RES, DirectPlay, the
   player profile, DirectDraw/Direct3D 7 at 640x480x16, menu fonts, the loading screen's overlay.
 - 2026-10-26 (night): native resolution and Hor+ widescreen by default.
-- 2026-10-26 (night, later): MORE OPTIONS page in the GRAPHICS screen (menu.c); RB = Tab in menus; Escape/B leaves a sub-screen.
+- 2026-10-26 (night, later): MORE OPTIONS page in the GRAPHICS screen (menu.c); RB = Tab in menus; Escape/B leaves a sub-screen. Lockstep matches through frame 408 (reference build runs hooks; test clock main-thread only).
 - 2026-10-26 (evening): music (DirectShow) and movies (IGetAVIInfo + Indeo 5).
 - 2026-10-26 (later): menus on Vulkan (8-bit palettes); the keyboard reaches the game (the
   window layer lost its main window when the first frame window was destroyed); loading screen

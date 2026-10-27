@@ -53,11 +53,22 @@ void vclock_sleep(uint32_t ms)
     vclock += ms;
 }
 
+/* --test: each reading moves the clock a microsecond, so a wait on time ends. Only the main
+   thread's readings move it: how often other threads read it depends on real scheduling (the
+   ref build runs slower), which made two runs' clocks differ [verified: lockstep 2026-10-26, timing
+   values at 0x55cbd60 differing between two translated runs]. Other threads see it plus their
+   own readings. */
+static __thread double vlocal;
 double now_ms(void)
 {
     if (deterministic) {
-        vclock += 0.001;
-        return vclock;
+        CPU *c = current_cpu();
+        if (!c || c->thread_index == 0) {
+            vclock += 0.001;
+            return vclock;
+        }
+        vlocal += 0.001;
+        return vclock + vlocal;
     }
     return real_ms();
 }
@@ -441,7 +452,9 @@ void api_trace(CPU *c)
     }
     if (!tracefp || api_calls < trace_lo || api_calls > trace_hi)
         return;
-    fprintf(tracefp, "%lu %08x %016llx\n", api_calls, c->ret, (unsigned long long)mem_hash());
+    static int no_hash = -1;        /* HT2_CALLS_ONLY: the call sites without the (slow) hashes */
+    if (no_hash < 0) no_hash = getenv("HT2_CALLS_ONLY") != NULL;
+    fprintf(tracefp, "%lu %08x %016llx\n", api_calls, c->ret, no_hash ? 0ull : (unsigned long long)mem_hash());
     if (api_calls == trace_hi)
         fflush(tracefp);
 }
