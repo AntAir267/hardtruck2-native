@@ -2009,6 +2009,8 @@ GMETHOD(dev_LightEnable, 3)
     Device *d = DEV(ARG(0));
     uint32_t i = ARG(1), on = ARG(2);
     LOG(LOG_D3D, "IDirect3DDevice7::LightEnable(%u, %s)", i, on ? "TRUE" : "FALSE");
+    if (i >= LIGHTS_MAX && !on)
+        return D3D_OK;                  /* (Hard Truck 2 switches off 0-254 at start: nothing to do) */
     if (i >= LIGHTS_MAX) {
         LOG(LOG_ALWAYS, "IDirect3DDevice7::LightEnable(%u): index out of our range", i);
         return DDERR_INVALIDPARAMS;

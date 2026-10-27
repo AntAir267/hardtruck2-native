@@ -54,3 +54,5 @@ uint32_t dsound_cocreate(uint32_t clsid, uint32_t riid, uint32_t ppv);
    full volume, centred. Returns an id for sound_stream_stop, or -1. */
 int sound_stream_start(const int16_t *pcm, uint32_t frames, int channels, int rate);
 void sound_stream_stop(int id);
+void sound_stream_volume(int id, int32_t millibels);     /* 0 full, -10000 silent */
+int sound_stream_playing(int id);                        /* 0 once it has played to its end */

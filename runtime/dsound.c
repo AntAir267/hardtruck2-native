@@ -2125,6 +2125,31 @@ int sound_stream_start(const int16_t *pcm, uint32_t frames, int channels, int ra
     return b->id;
 }
 
+/* a runtime voice's volume (millibels, 0 full, -10000 silent) */
+void sound_stream_volume(int id, int32_t mb)
+{
+    pthread_mutex_lock(&snd_lock);
+    for (Buf *b = bufs; b; b = b->next)
+        if (b->id == id && !b->obj) {
+            b->volume = mb < -10000 ? -10000 : mb > 0 ? 0 : mb;
+            update_gains(b);
+        }
+    pthread_mutex_unlock(&snd_lock);
+}
+
+/* 1 while a runtime voice is still playing (it stops at its end) */
+int sound_stream_playing(int id)
+{
+    int r = 0;
+    pthread_mutex_lock(&snd_lock);
+    sync_clock();
+    for (Buf *b = bufs; b; b = b->next)
+        if (b->id == id && !b->obj)
+            r = b->playing;
+    pthread_mutex_unlock(&snd_lock);
+    return r;
+}
+
 void sound_stream_stop(int id)
 {
     pthread_mutex_lock(&snd_lock);
