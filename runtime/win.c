@@ -14,6 +14,7 @@
 #include "input.h"
 #include "pad.h"
 #include "sound.h"
+#include "gfx.h"
 
 static SDL_Window *window;
 static int sdl_ok;
@@ -295,6 +296,25 @@ static void key_event(const SDL_KeyboardEvent *k, int down)
     post_message(down ? (alt ? 0x0104 : 0x0100) : (alt ? 0x0105 : 0x0101), generic, lparam);
 }
 
+/* The mouse in the game's coordinates (vk.c knows where its picture is in the window) */
+extern int vk_window_to_game(float x, float y, float *gx, float *gy);
+extern float vk_game_per_pixel(void);
+static float window_density(void)
+{
+    float d = window ? SDL_GetWindowPixelDensity(window) : 1.0f;
+    return d > 0 ? d : 1.0f;
+}
+static uint32_t mouse_lparam(float x, float y)
+{
+    float d = window_density(), gx = x * d, gy = y * d;
+    if (vk_window_to_game(x * d, y * d, &gx, &gy)) {
+        gx = gx < 0 ? 0 : gx > (float)gfx_mode.w - 1 ? (float)gfx_mode.w - 1 : gx;
+        gy = gy < 0 ? 0 : gy > (float)gfx_mode.h - 1 ? (float)gfx_mode.h - 1 : gy;
+    }
+    return ((uint32_t)(int)gy << 16) | ((uint32_t)(int)gx & 0xffff);
+}
+static float mouse_scale(void) { return window_density() * vk_game_per_pixel(); }
+
 void host_pump(void)
 {
     if (!sdl_ok)
@@ -309,10 +329,21 @@ void host_pump(void)
             break;
         case SDL_EVENT_KEY_DOWN: key_event(&e.key, 1); break;
         case SDL_EVENT_KEY_UP: key_event(&e.key, 0); break;
-        case SDL_EVENT_MOUSE_MOTION:
-            input_mouse_move((int)e.motion.xrel, (int)e.motion.yrel);
-            post_message(0x0200, 0, ((uint32_t)(int)e.motion.y << 16) | ((uint32_t)(int)e.motion.x & 0xffff));
+        case SDL_EVENT_MOUSE_MOTION: {
+            /* SDL gives window points; the game wants its own screen's pixels (800x600 menus,
+               640x480 driving) wherever the picture sits in the window [verified: 2026-10-27, the
+               cursor was off where the window was full screen] */
+            static float fx, fy;
+            float k = mouse_scale();
+            fx += e.motion.xrel * k;
+            fy += e.motion.yrel * k;
+            int dx = (int)fx, dy = (int)fy;
+            fx -= (float)dx;
+            fy -= (float)dy;
+            input_mouse_move(dx, dy);
+            post_message(0x0200, 0, mouse_lparam(e.motion.x, e.motion.y));
             break;
+        }
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_UP: {
             int down = e.type == SDL_EVENT_MOUSE_BUTTON_DOWN;
@@ -321,7 +352,7 @@ void host_pump(void)
             input_mouse_button(b, down);
             static const uint32_t msgs[3][2] = {{0x0202, 0x0201}, {0x0205, 0x0204}, {0x0208, 0x0207}};
             if (b < 3)
-                post_message(msgs[b][down], 0, ((uint32_t)(int)e.button.y << 16) | ((uint32_t)(int)e.button.x & 0xffff));
+                post_message(msgs[b][down], 0, mouse_lparam(e.button.x, e.button.y));
             break;
         }
         case SDL_EVENT_MOUSE_WHEEL:

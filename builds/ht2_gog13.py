@@ -50,6 +50,10 @@ HOOKS = {
     0x5162e0: 'graphics_draw',
     # a screen's input (menu.c: an Escape nothing takes closes a main-menu sub-screen)
     0x5d8260: 'screen_input',
+    # the render object giving its [RENDER] view pyramid to the camera (0x5df9a0) and to the world
+    # (0x4e04c0): widescreen.c widens the horizontal one as the projection is widened
+    0x5df9a0: 'camera_pyramid',
+    0x4e04c0: 'world_pyramid',
 }
 CONSTS = {}
 INLINE = {}

@@ -143,10 +143,15 @@ knowledge (addresses only).
   picture (proj_widened) and keeps everything else 4:3 in the middle: the instrument bar, the
   pager, messages, menus (8-bit screens), the small 101x76 view (its own projection). GetTransform
   gives the program its own matrix back.
-- Culling: draw counts at a given frame are the same at 4:3 and 32:9, and a 32:9 frame shows no
-  missing objects at its sides [guess: the game's view-based culling, if any, is wide enough;
-  the camera's [RENDER] xpyramid/ypyramid (0.8/0.6 defaults, TRUCK.INI 1.2/0.9) go to the camera
-  object too, 0x5df9c5]. Off in --test runs unless HT2_WIDESCREEN=1.
+- Culling (corrected 2026-10-27): the game draws only what is inside its [RENDER] view pyramid
+  (TRUCK.INI xpyramid/ypyramid 1.2/0.9, render object +0xbe8/+0xbf0), separate from the
+  projection's [EFFECTS] xpyramid. With only the projection widened, objects outside the 4:3 view
+  were dropped or cut along its edge: dead strips at the sides and pop-in there (Ant, real full
+  screen). widescreen.c hooks 0x5df9a0 (to the camera +0x58/+0x54) and 0x4e04c0 (to +0x24a0) and
+  widens xpyramid by the same factor while they run [verified: frames at 2560x1440 identical to a
+  TRUCK.INI xpyramid of 1.6]. Whether the game also uses +0x24a0 for traffic placement is not
+  known [guess: render only]. The earlier "same draw counts" check was wrong: dead end, do not
+  rely on draw counts for culling. Off in --test runs unless HT2_WIDESCREEN=1.
 
 ### 9. Options in the game's own menu (Ant, 2026-10-26)
 GAME-GOALS.md (~/DevWork/Games) asks for every setting a port adds to be in the game's own
@@ -246,6 +251,7 @@ work/rea (king.exe, GetAVIInfo.dll). Lockstep: tools/lockstep.py --seed <folder 
   Headless --test runs go: MFC start-up, TRUCK.INI and kmjin.ini, LOAD.RES, DirectPlay, the
   player profile, DirectDraw/Direct3D 7 at 640x480x16, menu fonts, the loading screen's overlay.
 - 2026-10-26 (night): native resolution and Hor+ widescreen by default.
+- 2026-10-27: Ant's first real full-screen run: the host window kept the first frame window's 100x200 (hidden/shown on Wayland lost the full screen; now handed over before hiding), the mouse in window points not game pixels (now mapped through the picture's place), side culling (pyramid hooks). HT2_DUMP_PRESENT works in a window (swapchain read back).
 - 2026-10-26 (night, later): MORE OPTIONS page in the GRAPHICS screen (menu.c); RB = Tab in menus; Escape/B leaves a sub-screen. Lockstep matches through frame 408 (reference build runs hooks; test clock main-thread only).
 - 2026-10-26 (evening): music (DirectShow) and movies (IGetAVIInfo + Indeo 5).
 - 2026-10-26 (later): menus on Vulkan (8-bit palettes); the keyboard reaches the game (the

@@ -13,12 +13,14 @@
 
    Off in --test runs (it changes what is drawn) unless HT2_WIDESCREEN is set. */
 #include <math.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
 #include "runtime.h"
 #include "options.h"
 #include "widescreen.h"
+#include "funcs.h"
 
 static int ws_on, allowed;
 static float ws_want;            /* a set aspect, 0 = follow the screen */
@@ -45,12 +47,39 @@ static void parse(void)
     ws_aspect = ws_on && ws_want > 0 ? ws_want : 4.0f / 3.0f;
 }
 
+/* The game's view pyramid: besides the projection ([EFFECTS] xpyramid), the render object keeps
+   [RENDER] xpyramid/ypyramid (+0xbe8/+0xbf0, doubles; TRUCK.INI 1.2/0.9) for what it draws at
+   all; 0x5df9a0 gives them to the camera (+0x58/+0x54) and 0x4e04c0 to +0x24a0/+0x24a4. With only
+   the projection widened, the game still dropped and cut off everything outside the 4:3 view:
+   dead strips at the screen's sides and objects popping in there [verified: 2026-10-27, frames at
+   2560x1440 with xpyramid 1.2 and 1.6: the side trees whole only with 1.6, the picture's scale the
+   same]. While those two run, the horizontal one is widened as the projection is. */
+static int pyramid_hook(CPU *c, void (*orig)(CPU *c))
+{
+    uint32_t o = c->ecx;
+    uint64_t keep = R64(o + 0xbe8);
+    float k = ws_on && ws_aspect > 4.0f / 3.0f + 0.001f ? ws_aspect / (4.0f / 3.0f) : 1.0f;
+    if (k > 1.0f) {
+        double x = RF64(o + 0xbe8) * k;
+        uint64_t u;
+        memcpy(&u, &x, 8);
+        W64(o + 0xbe8, u);
+    }
+    orig(c);
+    W64(o + 0xbe8, keep);
+    return 1;
+}
+static int camera_pyramid_hook(CPU *c) { return pyramid_hook(c, F_005df9a0_orig); }
+static int world_pyramid_hook(CPU *c) { return pyramid_hook(c, F_004e04c0_orig); }
+
 void widescreen_init(void)
 {
     allowed = !deterministic || getenv("HT2_WIDESCREEN");
     parse();
     if (ws_on && !allowed)
         ws_on = 0;
+    hook_camera_pyramid = camera_pyramid_hook;
+    hook_world_pyramid = world_pyramid_hook;
 }
 
 void widescreen_options(void)

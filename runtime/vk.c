@@ -560,6 +560,7 @@ static VkDeviceSize rb_size;
 
 /* frame dumps */
 static int dumping, dump_present;
+static int sc_readable;                 /* HT2_DUMP_PRESENT in a window: the swapchain images can be read back */
 static char dumpdir[900];
 static unsigned long dump_every = 30, dump_from, nframes, readbacks;
 /* per-frame counters, logged every 100 frames with --log d3d or HT2_VK_STATS=1 */
@@ -2760,10 +2761,15 @@ static int swapchain_ok(void)
     VkSwapchainCreateInfoKHR ci = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR, .surface = surface,
                                    .minImageCount = count, .imageFormat = sc_format,
                                    .imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, .imageExtent = ext,
-                                   .imageArrayLayers = 1, .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                   .imageArrayLayers = 1,
+                                   .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                                 (dump_present ? (caps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) : 0),
                                    .preTransform = caps.currentTransform, .compositeAlpha = ca,
                                    .presentMode = sc_mode, .clipped = VK_TRUE, .oldSwapchain = old};
     VKC(vkCreateSwapchainKHR(dev, &ci, NULL, &swapchain));
+    LOG(LOG_ALWAYS, "Vulkan: swapchain %ux%u (window %dx%d pixels)", ext.width, ext.height, w, h);
+    sc_readable = (ci.imageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) &&
+                  (sc_format == VK_FORMAT_B8G8R8A8_UNORM || sc_format == VK_FORMAT_R8G8B8A8_UNORM);
     swapchain_destroy();
     if (old)
         vkDestroySwapchainKHR(dev, old, NULL);
@@ -7337,6 +7343,25 @@ static void write_ppm(const char *name, unsigned long n, const uint8_t *px, uint
 }
 
 /* Draws image g (rect r) into the target, letterboxed; target layout ends as `final`. */
+static volatile float game_rect[4];     /* x, y, w, h in window pixels; w 0 = not yet */
+
+/* A window position (pixels) in the game's screen coordinates; 0 before the first frame */
+int vk_window_to_game(float x, float y, float *gx, float *gy)
+{
+    float w = game_rect[2], h = game_rect[3];
+    if (w <= 0 || h <= 0 || !gfx_mode.set || !gfx_mode.w || !gfx_mode.h)
+        return 0;
+    *gx = (x - game_rect[0]) * (float)gfx_mode.w / w;
+    *gy = (y - game_rect[1]) * (float)gfx_mode.h / h;
+    return 1;
+}
+
+/* game pixels per window pixel (relative mouse movement) */
+float vk_game_per_pixel(void)
+{
+    return game_rect[2] > 0 && gfx_mode.set && gfx_mode.w ? (float)gfx_mode.w / game_rect[2] : 1.0f;
+}
+
 static void present_pass(GpuImg *g, const int *r, VkImage timg, VkImageView tview, VkFormat tfmt, uint32_t tw,
                          uint32_t th, VkImageLayout final)
 {
@@ -7365,6 +7390,14 @@ static void present_pass(GpuImg *g, const int *r, VkImage timg, VkImageView tvie
         }
         VkViewport vp = {((float)tw - vw) / 2, ((float)th - vh) / 2, vw, vh, 0, 1};
         VkRect2D sc = {{0, 0}, {tw, th}};
+        /* where the game's own coordinates (its 4:3 screen) are in the window, for the mouse */
+        if (!offscreen) {
+            float lw = vh * 4.0f / 3.0f;
+            game_rect[0] = ((float)tw - lw) / 2;
+            game_rect[1] = ((float)th - vh) / 2;
+            game_rect[2] = lw;
+            game_rect[3] = vh;
+        }
         bind_pipeline(present_pipeline(tfmt));
         vkCmdSetViewport(cb, 0, 1, &vp);
         vkCmdSetScissor(cb, 0, 1, &sc);
@@ -7402,7 +7435,8 @@ void vkr_present(Surface *src, const int *rect)
     gamma_sync();
     end_rendering();
     if (g && dump) {
-        readback_reserve((VkDeviceSize)g->w * g->h * 4 + (out_img ? (VkDeviceSize)out_img->w * out_img->h * 4 : 0));
+        readback_reserve((VkDeviceSize)g->w * g->h * 4 + (out_img ? (VkDeviceSize)out_img->w * out_img->h * 4 :
+                                                          dump_present ? (VkDeviceSize)sc_w * sc_h * 4 : 0));
         barrier(g, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         VkBufferImageCopy c = {.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, .imageExtent = {g->w, g->h, 1}};
         vkCmdCopyImageToBuffer(cb, g->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, rb_buf, 1, &c);
@@ -7411,7 +7445,7 @@ void vkr_present(Surface *src, const int *rect)
         barrier(g, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     VkSemaphore wait = VK_NULL_HANDLE, signal = VK_NULL_HANDLE;
     uint32_t img = 0;
-    int acquired = 0;
+    int acquired = 0, sc_dumped = 0;
     if (offscreen) {
         present_pass(g, r, out_img->image, out_img->view, out_img->format, out_img->w, out_img->h,
                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -7428,7 +7462,20 @@ void vkr_present(Surface *src, const int *rect)
             acquired = 1;
             if (ar == VK_SUBOPTIMAL_KHR)
                 sc_stale = 1;
-            present_pass(g, r, sc_images[img], sc_views[img], sc_format, sc_w, sc_h, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            /* HT2_DUMP_PRESENT in a window: what goes to the screen, read back as the off-screen
+               output is (the picture after scaling to the window, its borders) */
+            int read_sc = g && dump && dump_present && sc_readable;
+            present_pass(g, r, sc_images[img], sc_views[img], sc_format, sc_w, sc_h,
+                         read_sc ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            if (read_sc) {
+                VkBufferImageCopy c = {.bufferOffset = (VkDeviceSize)g->w * g->h * 4,
+                                       .imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+                                       .imageExtent = {sc_w, sc_h, 1}};
+                vkCmdCopyImageToBuffer(cb, sc_images[img], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, rb_buf, 1, &c);
+                raw_barrier(sc_images[img], VK_IMAGE_ASPECT_COLOR_BIT, 1, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+                sc_dumped = 1;
+            }
             wait = f->acquired;
             signal = sc_done[img];
         } else if (ar == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -7458,6 +7505,14 @@ void vkr_present(Surface *src, const int *rect)
                   (uint32_t)(p2 - p0), (uint32_t)(p3 - p1));
         if (offscreen && dump_present)
             write_ppm("present", nframes, rb_map + (size_t)g->w * g->h * 4, out_img->w * 4, out_img->w, out_img->h);
+        if (!offscreen && sc_dumped) {
+            uint8_t *px = rb_map + (size_t)g->w * g->h * 4;
+            if (sc_format == VK_FORMAT_R8G8B8A8_UNORM)          /* write_ppm reads BGRA */
+                for (size_t i = 0; i < (size_t)sc_w * sc_h; i++) {
+                    uint8_t t = px[4 * i]; px[4 * i] = px[4 * i + 2]; px[4 * i + 2] = t;
+                }
+            write_ppm("present", nframes, px, sc_w * 4, sc_w, sc_h);
+        }
     }
     fi = (fi + 1) % FRAMES;
     sh_views = 0;

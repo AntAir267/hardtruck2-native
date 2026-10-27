@@ -444,6 +444,19 @@ static void destroy_window(CPU *c, uint32_t hwnd)
     w->destroying = 1;
     LOG(LOG_WIN, "DestroyWindow(%x)", hwnd);
     call_hooks(c, 5, 4, hwnd, 0);                        /* HCBT_DESTROYWND */
+    if (main_hwnd == hwnd) {
+        /* another visible top-level window takes over the host window first (Hard Truck 2 destroys
+           its first frame window once the game's own is up), so hiding this one leaves the host
+           window alone: hiding and showing it again lost the full screen on Wayland and kept the
+           first window's 100x200 [verified: 2026-10-27, swapchain 100x200 stretched over the
+           screen] */
+        for (int i = 0; i < MAXWIN; i++)
+            if (wins[i].used && wins[i].hwnd != hwnd && !(wins[i].style & WS_CHILD) &&
+                (wins[i].style & WS_VISIBLE)) {
+                main_hwnd = wins[i].hwnd;
+                break;
+            }
+    }
     if (w->style & WS_VISIBLE) show_window(c, hwnd, 0);
     sendmsg(c, hwnd, WM_DESTROY, 0, 0);
     for (int i = 0; i < MAXWIN; i++)                      /* children, and windows it owns */
@@ -454,18 +467,9 @@ static void destroy_window(CPU *c, uint32_t hwnd)
     if (active_hwnd == hwnd) active_hwnd = 0;
     if (capture_hwnd == hwnd) capture_hwnd = 0;
     w->used = 0;
-    if (main_hwnd == hwnd) {
-        /* another visible top-level window takes over the host window (Hard Truck 2 destroys
-           its first frame window once the game's own is up) */
+    if (main_hwnd == hwnd) {                              /* none took over: the host window goes */
         main_hwnd = 0;
-        for (int i = 0; i < MAXWIN; i++)
-            if (wins[i].used && !(wins[i].style & WS_CHILD) && (wins[i].style & WS_VISIBLE)) {
-                main_hwnd = wins[i].hwnd;
-                break;
-            }
-        /* hiding the destroyed window above hid the host window: show it again for the new one
-           [verified: 2026-10-27, the game played with its window hidden after 0x10020 went] */
-        host_window_show(main_hwnd != 0);
+        host_window_show(0);
     }
 }
 
