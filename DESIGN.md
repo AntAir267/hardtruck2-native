@@ -215,10 +215,16 @@ menu_fps (no menu/driving test for this game: it does nothing), render_scale (te
   past the return [verified: runs lockstep2-8]; (2) the --test clock moves only on the main
   thread's readings (other threads see it plus their own), which made two translated runs
   identical. HT2_CALLS_ONLY=1 with --hash-calls lists call sites without hashing (fast).
-  Next difference, frame 409: sound thread 1 (0x61f781, started at 5 s, the intro's?) reads a
-  buffer's play cursor when told to stop (0x5c2383 -> 0x701ec8/0x701ecc); the cursor follows the
-  clock, and when that read happens against the main thread is real scheduling. Needs repeatable
-  thread hand-offs in --test (det_yield is empty here) or a sound clock other threads cannot race.
+  Frame 409 (sound thread 1 waking every 191 ms in real time against the main thread) fixed
+  2026-10-28: --test runs schedule the game's threads one at a time (sync.c, li2-native's
+  scheduler: turns pass at waits, sleeps, thread ends and the main thread's frame ends; timed
+  waits time out at frame ends) and the sound clock moves at frame ends only. Lockstep now
+  IDENTICAL on all 1800 frames of that run (menus, new game, engine start, driving) [verified:
+  T7, work/t7/20261028-004106]. tools/dev/bisect_frame.sh N KEYS finds the first differing call
+  in frame N (HT2_CALLS_ONLY for the fast pass).
+- fncheck (make check; on the T7 ~2 min): 12040 pass, 16 functions FAIL, all classified harmless
+  in tests/fncheck_baseline.txt (x87 status bits, NaN payloads, clock reads, MMX/x87 TOP).
+  Compare new runs against that file.
 - Overhead: no measurements yet. To take before any change: frame time, game-thread CPU, GPU
   time and load time (start to menu, menu to driving) on the 890M at Ant's resolution, with the
   render thread on. Likely simple wins: the 8-bit menus upload the whole 800x600 back buffer
@@ -254,7 +260,7 @@ work/rea (king.exe, GetAVIInfo.dll). Lockstep: tools/lockstep.py --seed <folder 
 - 2026-10-27: fog checked: the game uses vertex fog (linear, start ~13.4, end 60 eye units, colour ffffe6; not from TRUCK.INI [RENDER] fog=, which changed nothing) and the port draws it (fog distances scaled by 0.1 for a test fogged the scene white) [verified: runs 107-108]. So remaining pop-in in the distance is the game's own draw distance ending before its fog is full; TD6's answer (vk_fog_end: fog full at the draw distance, drawdist.c) is not in this port yet [roadmap: draw distance / fog-at-edge option]. Off-screen real-time runs get no input focus: DirectInput driving keys/pad do nothing there (menus work); drive in --test. Ant's profile has [EFFECTS] control=0 (keyboard only): made before a pad was connected, so the pad does not drive until chosen on CONTROLLERS (padgame.c only sets it for new profiles). T7 set up for this project 2026-10-27 (venv, SDL3, game files).
 - 2026-10-27: widescreen with the render thread showed the 4:3 view in the middle and other frames at the sides (Ant's screenshot, flicker): vk.c read ws_world_aspect live, but the game sets two widened cameras per frame (world, cockpit), so a frame behind the world's draws failed proj_widened. Now carried in CtxSnap (vkr.ws_world_aspect). HT2_RENDER_THREAD=1 with --test reproduces such bugs; thread on/off presents pixel-identical after the fix. Rule: anything vk.c reads from the game side goes through the snapshot.
 - 2026-10-27: Ant's first real full-screen run: the host window kept the first frame window's 100x200 (hidden/shown on Wayland lost the full screen; now handed over before hiding), the mouse in window points not game pixels (now mapped through the picture's place), side culling (pyramid hooks). HT2_DUMP_PRESENT works in a window (swapchain read back).
-- 2026-10-26 (night, later): MORE OPTIONS page in the GRAPHICS screen (menu.c); RB = Tab in menus; Escape/B leaves a sub-screen. Lockstep matches through frame 408 (reference build runs hooks; test clock main-thread only).
+- 2026-10-26 (night, later): MORE OPTIONS page in the GRAPHICS screen (menu.c); RB = Tab in menus; Escape/B leaves a sub-screen. Lockstep identical on an 1800-frame race run (reference build runs hooks; --test threads take turns).
 - 2026-10-26 (evening): music (DirectShow) and movies (IGetAVIInfo + Indeo 5).
 - 2026-10-26 (later): menus on Vulkan (8-bit palettes); the keyboard reaches the game (the
   window layer lost its main window when the first frame window was destroyed); loading screen
