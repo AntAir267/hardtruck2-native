@@ -225,7 +225,18 @@ menu_fps (no menu/driving test for this game: it does nothing), render_scale (te
 - fncheck (make check; on the T7 ~2 min): 12040 pass, 16 functions FAIL, all classified harmless
   in tests/fncheck_baseline.txt (x87 status bits, NaN payloads, clock reads, MMX/x87 TOP).
   Compare new runs against that file.
-- Overhead: no measurements yet. To take before any change: frame time, game-thread CPU, GPU
+- Overhead, first numbers (2026-10-28, Win Max, NOT quiet: load ~4.5 from other sessions, so
+  approximate): off-screen real time at 2560x1440, 4x anti-aliasing, widescreen, HT2_PACE=60,
+  parked in the yard: GPU ~8 ms a frame, game thread CPU 5.3-6 ms a frame (HT2_CPU_FROM), the
+  process ~0.4 of a core, frames 16.7 ms (slowest ~19). HT2_PROFILE (perf is not allowed here:
+  perf_event_paranoid 4; tools/profile.py names nothing, use nm: work/nm.txt): 21.6% of all CPU
+  is render_main spinning (2000 pauses each time its queue runs dry, ~550 times a frame), then
+  game code (0x5b4670, 0x5af090, 0x5db5c0...), tnl_vertex 2.8%, fpu_fcos/fsin 3.5%.
+  Dead end: waking the sleeping render thread only every 32 commands (and spinning 200) starved
+  it: 1747 frame-ahead waits, 24 ms frames. Next try, on a quiet machine: a shorter spin with
+  the per-draw wake kept, measured against this baseline; or handing work over in bigger blocks
+  without the thread falling a frame behind.
+- Overhead (older note): no measurements yet. To take before any change: frame time, game-thread CPU, GPU
   time and load time (start to menu, menu to driving) on the 890M at Ant's resolution, with the
   render thread on. Likely simple wins: the 8-bit menus upload the whole 800x600 back buffer
   through the palette every frame (only on change would do), per-call lookups in d3d.c.
