@@ -95,9 +95,169 @@ static void acquire_locked(uint32_t h, CPU *self)
     }
 }
 
+static void kick(void) { pthread_cond_broadcast(&kcond); }
+
+/* ------------------------------------------------------------------ test runs: one at a time */
+/* In --test runs the game's threads (the main one and its sound thread, 0x61f781) take turns
+   instead of running at once, so every run interleaves them the same way: one holds the turn
+   and runs until it waits for something that is not there, sleeps, finishes, or (the main
+   thread) ends a frame; the turn then goes, in a fixed order, to the next thread that can run.
+   A timed wait given the turn at a frame end times out (time is the virtual clock's). From
+   li2-native's sync.c. Before it the sound thread's wakes (WaitForMultipleObjects, 191 ms, real
+   time) interleaved with the main thread by real scheduling: lockstep parted at frame 409
+   [verified: tools/dev/bisect_frame.sh 409, the two builds' call sequences crossing threads at
+   0x5c24ab]. Everything here is under klock. */
+enum { P_RUN, P_WANT, P_SLEEP, P_BLOCK, P_DONE };
+static struct { CPU *cpu; int state, n, all, timed; uint32_t hs[64]; } parts[8];
+static int nparts, tok = -1;
+
+static int det_me(CPU *self)
+{
+    for (int i = 0; i < nparts; i++)
+        if (parts[i].cpu == self) return i;
+    if (nparts == 8) fatal("--test: more than 8 threads");
+    parts[nparts].cpu = self;
+    parts[nparts].state = P_RUN;
+    if (tok < 0) tok = nparts;
+    return nparts++;
+}
+
+static int det_satisfied(int i)
+{
+    int any = 0, all = 1;
+    for (int k = 0; k < parts[i].n; k++) {
+        int s = signalled_locked(parts[i].hs[k], parts[i].cpu);
+        any |= s;
+        all &= s;
+    }
+    return parts[i].all ? all : any;
+}
+
+static int det_runnable(int i, int yielding)
+{
+    switch (parts[i].state) {
+    case P_WANT: case P_SLEEP: return 1;
+    case P_BLOCK: return det_satisfied(i) || (parts[i].timed && yielding);
+    default: return 0;
+    }
+}
+
+static void *det_watch(void *arg);
+static volatile unsigned long det_turns;
+
+/* the turn goes to the next thread after `from` that can run (itself last) */
+static void det_schedule(int from, int yielding)
+{
+    static int watching;
+    if (!watching) {
+        watching = 1;
+        pthread_t w;
+        pthread_create(&w, NULL, det_watch, NULL);
+    }
+    det_turns++;
+    tok = -1;
+    for (int k = 1; k <= nparts; k++) {
+        int i = (from + k) % nparts;
+        if (det_runnable(i, yielding)) { tok = i; break; }
+    }
+    LOG(LOG_THREAD, "turn: %d -> %d (%s; states %d %d %d)", from, tok, yielding ? "yield" : "block",
+        parts[0].state, nparts > 1 ? parts[1].state : -1, nparts > 2 ? parts[2].state : -1);
+    kick();
+}
+
+/* a watchdog for test runs: the turn stuck for 5 s prints every thread's stack */
+#include <dirent.h>
+#include <execinfo.h>
+#include <signal.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+static void det_stack(int sig)
+{
+    void *bt[24];
+    int n = backtrace(bt, 24);
+    char head[64];
+    int k = snprintf(head, sizeof head, "--- thread %ld:\n", (long)syscall(SYS_gettid));
+    if (write(2, head, k) < 0) {}
+    backtrace_symbols_fd(bt, n, 2);
+    (void)sig;
+}
+static void *det_watch(void *arg)
+{
+    unsigned long last = 0;
+    int same = 0;
+    for (;;) {
+        sleep(1);
+        if (det_turns != last) { last = det_turns; same = 0; continue; }
+        if (++same != 5) continue;
+        if (write(2, "--test: the turn is stuck; stacks:\n", 36) < 0) {}
+        signal(SIGUSR2, det_stack);
+        DIR *d = opendir("/proc/self/task");
+        struct dirent *e;
+        while (d && (e = readdir(d)))
+            if (e->d_name[0] != '.') {
+                syscall(SYS_tgkill, getpid(), atoi(e->d_name), SIGUSR2);
+                usleep(50000);
+            }
+        if (d) closedir(d);
+    }
+    (void)arg;
+    return NULL;
+}
+
+static void det_wait_turn(int me)
+{
+    while (tok != me)
+        pthread_cond_wait(&kcond, &klock);
+    parts[me].state = P_RUN;
+}
+
+/* a sleep, or the main thread's frame end: the others that can run take their turns first */
+void det_yield(void)
+{
+    if (!deterministic) return;
+    CPU *self = current_cpu();
+    if (!self) return;
+    pthread_mutex_lock(&klock);
+    int me = det_me(self);
+    parts[me].state = P_SLEEP;
+    det_schedule(me, 1);
+    det_wait_turn(me);
+    pthread_mutex_unlock(&klock);
+}
+
+static int det_check_locked(int n, const uint32_t *hs, int all, CPU *self)
+{
+    if (all) {
+        for (int i = 0; i < n; i++)
+            if (!signalled_locked(hs[i], self)) return -1;
+        for (int i = 0; i < n; i++) acquire_locked(hs[i], self);
+        return 0;
+    }
+    for (int i = 0; i < n; i++)
+        if (signalled_locked(hs[i], self)) { acquire_locked(hs[i], self); return i; }
+    return -1;
+}
+
 int wait_handles(int n, const uint32_t *hs, int all, uint32_t ms)
 {
     CPU *self = current_cpu();
+    if (deterministic && self) {
+        pthread_mutex_lock(&klock);
+        int me = det_me(self), r = det_check_locked(n, hs, all, self);
+        while (r < 0 && ms != 0) {
+            parts[me].state = P_BLOCK;
+            parts[me].n = n > 64 ? 64 : n;
+            memcpy(parts[me].hs, hs, 4 * (size_t)parts[me].n);
+            parts[me].all = all;
+            parts[me].timed = ms != 0xffffffffu;
+            det_schedule(me, 0);
+            det_wait_turn(me);
+            r = det_check_locked(n, hs, all, self);
+            if (r < 0 && ms != 0xffffffffu) break;      /* given the turn at a frame end: time out */
+        }
+        pthread_mutex_unlock(&klock);
+        return r < 0 ? 0x102 : r;
+    }
     struct timespec until;
     clock_gettime(CLOCK_REALTIME, &until);
     if (ms != 0xffffffffu) {
@@ -136,7 +296,6 @@ int wait_handles(int n, const uint32_t *hs, int all, uint32_t ms)
 
 int wait_handle(uint32_t h, uint32_t ms) { return wait_handles(1, &h, 0, ms); }
 
-static void kick(void) { pthread_cond_broadcast(&kcond); }
 
 API(KERNEL32, CreateEventA, 4)
 {
@@ -170,6 +329,8 @@ void event_signal(uint32_t h)
     Event *e = handle_get(h, H_EVENT);
     if (e) {
         e->signalled = 1;
+        if (deterministic && tok < 0 && nparts)  /* (everyone was waiting) */
+            det_schedule(nparts - 1, 0);
         kick();
     }
     pthread_mutex_unlock(&klock);
@@ -223,6 +384,11 @@ API(KERNEL32, WaitForMultipleObjects, 4)
 static void *thread_main(void *arg)
 {
     Thread *t = arg;
+    if (deterministic) {
+        pthread_mutex_lock(&klock);
+        det_wait_turn(det_me(t->cpu));
+        pthread_mutex_unlock(&klock);
+    }
     set_current_cpu(t->cpu);
     fpu_activate(t->cpu);
     LOG(LOG_THREAD, "thread %d starts at %08x(%08x)", t->cpu->thread_index, t->start, t->param);
@@ -230,6 +396,11 @@ static void *thread_main(void *arg)
     pthread_mutex_lock(&klock);
     t->exit_code = r;
     t->finished = 1;
+    if (deterministic) {
+        int me = det_me(t->cpu);
+        parts[me].state = P_DONE;
+        det_schedule(me, 1);
+    }
     kick();
     pthread_mutex_unlock(&klock);
     LOG(LOG_THREAD, "thread %d returned %u", t->cpu->thread_index, r);
@@ -245,8 +416,12 @@ API(KERNEL32, CreateThread, 6)
     t->param = ARG(3);
     if (ARG(4) & 4)
         LOG(LOG_ALWAYS, "CreateThread: CREATE_SUSPENDED not supported, starting at once");
-    if (deterministic)
-        LOG(LOG_ALWAYS, "CreateThread in --test mode: thread timing makes this run non-repeatable");
+    if (deterministic) {                /* (it takes turns: det_yield) */
+        pthread_mutex_lock(&klock);
+        det_me(current_cpu());
+        parts[det_me(t->cpu)].state = P_WANT;
+        pthread_mutex_unlock(&klock);
+    }
     uint32_t h = handle_new(H_THREAD, t);
     if (ARG(5))
         W32(ARG(5), R32(t->cpu->fs_base + 0x24));
@@ -270,6 +445,11 @@ API(KERNEL32, ExitThread, 1)
     pthread_mutex_lock(&klock);
     t->exit_code = ARG(0);
     t->finished = 1;
+    if (deterministic) {
+        int me = det_me(self);
+        parts[me].state = P_DONE;
+        det_schedule(me, 1);
+    }
     kick();
     pthread_mutex_unlock(&klock);
     pthread_exit(NULL);
@@ -284,15 +464,18 @@ API(KERNEL32, SetThreadPriority, 2)
 API(KERNEL32, Sleep, 1)
 {
     uint32_t ms = ARG(0);
-    if (ms == 0) {
-        sched_yield();
+    CPU *self = current_cpu();
+    if (deterministic && self) {
+        /* the main thread's Sleep moves the virtual clock (the game times its clock against
+           timeGetTime over a Sleep(2000) at start-up, 0x6035f0); every Sleep is a turn for the
+           others */
+        extern void vclock_sleep(uint32_t ms);
+        if (self->thread_index == 0 && ms != 0xffffffffu)
+            vclock_sleep(ms);
+        det_yield();
         return 0;
     }
-    CPU *self = current_cpu();
-    if (deterministic && ms != 0xffffffffu && self && self->thread_index == 0) {
-        /* (the main thread only: other threads' waits, as the music thread's retries, run in real time) */
-        extern void vclock_sleep(uint32_t ms);
-        vclock_sleep(ms);
+    if (ms == 0) {
         sched_yield();
         return 0;
     }
@@ -349,6 +532,11 @@ API(KERNEL32, DeleteCriticalSection, 1)
 
 API(KERNEL32, EnterCriticalSection, 1)
 {
+    if (deterministic && current_cpu()) {   /* held by a thread waiting its turn: let it run */
+        while (pthread_mutex_trylock(cs_get(ARG(0))) != 0)
+            det_yield();
+        return 0;
+    }
     pthread_mutex_lock(cs_get(ARG(0)));
     return 0;
 }
@@ -369,6 +557,3 @@ uint32_t current_thread_id(void)
     return c ? R32(c->fs_base + 0x24) : 0x100u;
 }
 
-/* A wait loop's turn for other threads (LI2's runtime schedules threads in --test runs; this one
-   runs them freely, so there is nothing to hand over). */
-void det_yield(void) {}

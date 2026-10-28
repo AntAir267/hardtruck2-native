@@ -529,6 +529,8 @@ static void frame_limit(void)
 void frame_presented(void)
 {
     frame_count++;
+    extern void det_yield(void);
+    det_yield();                        /* --test: the other threads' turn (sync.c) */
     {   /* HT2_CPU_FROM=<frame>: the game thread's CPU time a frame from then, logged every 400 frames
            (timing changes on the game thread without its waits; work/cpu_far.sh) */
         static long from = -2;
