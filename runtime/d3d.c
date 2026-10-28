@@ -1598,6 +1598,22 @@ GMETHOD(dev_SetTransform, 3)
         d->proj_x = d->st.xf[3].m[0][0];
         d->proj_set = 1;
         ws_projection(d);
+        /* HT2_PROJ_LOG: each new projection once, with its near/far planes (D3D: z' = A z + B,
+           A = m22, B = m32: near = -B/A, far = B/(1-A)) */
+        static int plog = -1;
+        static float seen[16][3];
+        static int nseen;
+        if (plog < 0) plog = getenv("HT2_PROJ_LOG") != NULL;
+        const float *P = &d->st.xf[3].m[0][0];
+        int dup = 0;
+        for (int i = 0; plog && i < nseen && !dup; i++)
+            dup = seen[i][0] == d->proj_x && seen[i][1] == P[5] && seen[i][2] == P[10];
+        if (plog && !dup && nseen < 16) {
+            seen[nseen][0] = d->proj_x; seen[nseen][1] = P[5]; seen[nseen][2] = P[10]; nseen++;
+            float A = P[10], B = P[14];
+            LOG(LOG_ALWAYS, "projection: x %g y %g near %g far %g (viewport %ux%u at %u,%u)", d->proj_x, P[5],
+                A != 0 ? -B / A : 0, A != 1 ? B / (1 - A) : 0, d->st.vp.w, d->st.vp.h, d->st.vp.x, d->st.vp.y);
+        }
     }
     LOG(LOG_D3D, "IDirect3DDevice7::SetTransform(%s, %s)", t < 7 ? xf_names[t] : t >= 16 ? "TEXTURE" : "?", mat_str(m, ms, sizeof ms));
     return D3D_OK;

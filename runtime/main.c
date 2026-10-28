@@ -59,6 +59,13 @@ void vclock_sleep(uint32_t ms)
    values at 0x55cbd60 differing between two translated runs]. Other threads see it plus their
    own readings. */
 static __thread double vlocal;
+/* --test: the sound's clock moves at frame ends only. Sound thread 1 (0x61f781) reads a buffer's
+   play cursor when it is told to stop (0x5c2383 -> 0x701ec8); with the clock moving on every
+   reading, what it got depended on when it ran against the main thread [verified: lockstep
+   2026-10-26, frame 409]. Within a frame the cursor now stands still. */
+static double vclock_frame;
+double test_sound_clock(void) { return vclock_frame; }
+
 double now_ms(void)
 {
     if (deterministic) {
@@ -417,6 +424,10 @@ void runtime_setup(void)
     pad_init();
     ddraw_init();
     dsound_init();
+    if (deterministic) {
+        extern void sound_set_clock(double (*fn)(void));
+        sound_set_clock(test_sound_clock);
+    }
     dinput_init();
     extern void widescreen_init(void);
     widescreen_init();
@@ -560,6 +571,7 @@ void frame_presented(void)
             vstep_from = at ? strtoul(at + 1, NULL, 10) : 0;
         }
         vclock += frame_count >= vstep_from ? vstep : 1000.0 / 60.0;
+        vclock_frame = vclock;
         timers_run_due(vclock);
     }
     {
