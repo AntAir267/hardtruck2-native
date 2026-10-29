@@ -885,7 +885,12 @@ void d3d_options(void)
 }
 static int native_layout(const Fetch *f)
 {
-    return f->l.pos == 1 && f->l.nblend == 0 && f->l.ntex <= 1 && (!f->l.ntex || f->l.texdim[0] == 2);
+    if (f->l.pos != 1 || f->l.nblend != 0 || (f->l.ntex && f->l.texdim[0] != 2))
+        return 0;
+    /* two coordinate sets: the second goes in the colour slots, so only without colours */
+    if (f->l.ntex == 2)
+        return f->l.texdim[1] == 2 && f->l.diffuse < 0 && f->l.specular < 0;
+    return f->l.ntex <= 1;
 }
 
 static int gpu_layout(const Fetch *f)
@@ -1028,8 +1033,9 @@ static uint32_t draw(Device *d, int api, uint32_t prim, const Fetch *f, uint32_t
     if (gpu && d3d_native && native_layout(f) && vk_tnl_ok(&d->st, (int)n < vk_tnl_min ? vk_tnl_min : (int)n)) {
         /* "renderer = native" (DESIGN.md section 11): the game's own vertex layouts transformed and
            lit on the GPU (tnl.vert) instead of here: packed into its 40-byte record (position,
-           normal, diffuse, specular, one texture coordinate); a colour source naming a colour the
-           vertices do not have takes the material, as the CPU path does (mat_source) */
+           normal, diffuse, specular, one texture coordinate; a second set, the lightmap's, in the colour
+           slots when there are no colours); a colour source naming a colour the vertices do not have
+           takes the material, as the CPU path does (mat_source) */
         double t1 = now_real_ms();
         uint8_t *raw = malloc((size_t)n * 40);
         uint16_t *ix = nidx ? malloc(nidx * sizeof *ix) : NULL;
@@ -1043,8 +1049,12 @@ static uint32_t draw(Device *d, int api, uint32_t prim, const Fetch *f, uint32_t
             else memset(o + 12, 0, 12);
             uint32_t dc = f->l.diffuse >= 0 ? R32(f->diffuse + (start + i) * f->sdiffuse) : 0xffffffffu;
             uint32_t sc = f->l.specular >= 0 ? R32(f->specular + (start + i) * f->sspecular) : 0xff000000u;
-            memcpy(o + 24, &dc, 4);
-            memcpy(o + 28, &sc, 4);
+            if (f->l.ntex == 2)                 /* (tnl.vert: flags.x bit 64) */
+                memcpy(o + 24, gptr(f->tex[1] + (start + i) * f->stex[1]), 8);
+            else {
+                memcpy(o + 24, &dc, 4);
+                memcpy(o + 28, &sc, 4);
+            }
             if (f->l.ntex) memcpy(o + 32, gptr(f->tex[0] + (start + i) * f->stex[0]), 8);
             else memset(o + 32, 0, 8);
         }
@@ -1055,6 +1065,8 @@ static uint32_t draw(Device *d, int api, uint32_t prim, const Fetch *f, uint32_t
         xform_setup(&d->st, &x, d->st.rs[RS_LIGHTING] != 0);
         tnl_const(&x, &k);
         tnl_world(k.world, &d->st.xf[XF_WORLD]);
+        if (f->l.ntex == 2)
+            k.flags[0] |= 64u;
         int hd = f->l.diffuse >= 0, hs = f->l.specular >= 0;
         for (int sh = 0; sh < 16; sh += 4) {
             uint32_t src = (k.flags[3] >> sh) & 15;

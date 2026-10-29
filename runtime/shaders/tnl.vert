@@ -105,7 +105,12 @@ void main()
     vec3 e = vec3(0.0);
     if ((fl & 1u) != 0u || fogmode != 0u)
         e = (K.wv * p).xyz;
-    vec4 vd = a_diffuse, vs = a_specular, od, os, dsh, ssh;
+    /* flags.x bit 64 ("renderer = native", d3d.c): the vertices have no colours and carry their
+       second texture coordinate set in the two colour slots (the bytes as they were) */
+    bool tc2 = (fl & 64u) != 0u;
+    vec2 tc1 = tc2 ? vec2(uintBitsToFloat(packUnorm4x8(a_diffuse.zyxw)), uintBitsToFloat(packUnorm4x8(a_specular.zyxw)))
+                   : vec2(0.0);
+    vec4 vd = tc2 ? vec4(1.0) : a_diffuse, vs = tc2 ? vec4(0.0, 0.0, 0.0, 1.0) : a_specular, od, os, dsh, ssh;
     bool split = (pc.shadow.x & 0x1ffu) == 0x101u;
     if ((fl & 1u) == 0u) {
         od = vd;
@@ -205,7 +210,8 @@ void main()
     f_diffuse = od;
     v_specular = os;
     f_specular = os;
-    v_tc = vec4(pc.tnl.z == 0u ? a_tc : vec2(0.0), pc.tnl.w == 0u ? a_tc : vec2(0.0));
+    v_tc = vec4(pc.tnl.z == 0u ? a_tc : pc.tnl.z == 1u ? tc1 : vec2(0.0),
+                pc.tnl.w == 0u ? a_tc : pc.tnl.w == 1u ? tc1 : vec2(0.0));
     v_dsh = dsh;
     f_dsh = dsh;
     v_ssh = ssh;
