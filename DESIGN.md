@@ -308,6 +308,16 @@ at most 12 pixels per frame by more (triangle edges); lockstep IDENTICAL on the 
 run with renderer = native (work/seed/options.txt); CPU (T7, paced 60, tools/dev/perf_ab.sh):
 vertex processing 0.55 -> 0.33 ms a frame, game thread 2.63 -> 2.47 ms, process CPU -3%, GPU the
 same. Next: the TEX2 (lightmap) layout; then the queue and its spin (the real cost).
+Lightmapped meshes (2026-10-29): XYZ|NORMAL|TEX2 without colours carry their second coordinate
+set in the record's colour slots; tnl.vert (flags.x bit 64) reads them back bit for bit
+(packUnorm4x8) and gives each stage the set its TEXCOORDINDEX names. Now 100% of draws native
+(531154, 0 on the CPU transform) [verified: T7]: presents vs original on lavapipe differ in
+13-16% of pixels by under 3% and in at most 13 pixels a frame by more; lockstep IDENTICAL (1800
+frames, renderer = native); validation layer loaded, 0 messages over 2200 frames (HT2_VK_VALIDATE
+on the RTX 4070); Win Max (RADV) 2560x1440: 682 of 3.7M pixels differ by more than 3% (edges).
+Not done: GPU-resident meshes (the draws are small: ~26 vertices on average, so the per-draw
+vertex copy is a few KB a frame; the per-draw state snapshot, ~2.4 KB a draw, is the bigger copy).
+
 Queue and spin (2026-10-29, both renderers, it is the default path's render thread): the sleeping
 render thread is woken per 32 commands, at present and by every wait for it (vk_sync, the
 frame-ahead wait - leaving that one out was the 2026-10-28 dead end's starvation), its spin 100
