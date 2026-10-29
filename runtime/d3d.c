@@ -413,9 +413,36 @@ static void count(int api, uint32_t fvf, uint32_t prim, uint32_t verts, uint32_t
     s->prims += prims;
 }
 
+/* HT2_DRAW_SITES: draws counted by the program's call site (the return address), the 40 busiest in
+   the summary (which game code draws what: the native renderer's inventory, DESIGN.md) */
+static struct { uint32_t ret; unsigned long calls, verts; } sites[1024];
+static int nsites, sites_on = -1;
+static void count_site(uint32_t verts)
+{
+    if (sites_on < 0) sites_on = getenv("HT2_DRAW_SITES") != NULL;
+    CPU *c = current_cpu();
+    if (!sites_on || !c) return;
+    uint32_t ret = R32(c->esp);
+    int i;
+    for (i = 0; i < nsites && sites[i].ret != ret; i++) {}
+    if (i == nsites) {
+        if (nsites == 1024) return;
+        sites[nsites++].ret = ret;
+    }
+    sites[i].calls++;
+    sites[i].verts += verts;
+}
+
 static void print_stats(const char *why)
 {
     char f1[160], f2[160];
+    for (int k = 0; k < 40 && k < nsites; k++) {
+        int b = k;
+        for (int i = k + 1; i < nsites; i++)
+            if (sites[i].calls > sites[b].calls) b = i;
+        __typeof__(sites[0]) t = sites[k]; sites[k] = sites[b]; sites[b] = t;
+        logmsg(LOG_ALWAYS, "draw site %08x: %lu calls, %lu vertices", sites[k].ret, sites[k].calls, sites[k].verts);
+    }
     logmsg(LOG_ALWAYS, "D3D draw summary (%s, %lu frames): %d kinds", why, stats_frames, nstats);
     for (int i = 0; i < nstats; i++) {
         Stat *s = &stats[i];
@@ -912,6 +939,7 @@ static uint32_t draw(Device *d, int api, uint32_t prim, const Fetch *f, uint32_t
         return D3DERR_INVALIDPRIMITIVETYPE;
     uint32_t prims = prim_count(prim, idx ? nidx : n);
     count(api, f->l.fvf, prim, n, idx ? nidx : 0, prims);
+    count_site(n);
     if (LOGON(LOG_DRAW)) {
         uint32_t first = idx && nidx ? R16(idx) : 0;
         char chain[256] = "";

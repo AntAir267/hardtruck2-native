@@ -244,6 +244,56 @@ menu_fps (no menu/driving test for this game: it does nothing), render_scale (te
 - Big enhancements (ray tracing, AO, volumetrics) wait for the same; renderer from td6-native
   already has the depth/motion data and toggled passes.
 
+### 11. Native Vulkan renderer (plan, 2026-10-29; Ant's exception in GAME-GOALS.md)
+Ant approved building it now: switchable in MORE OPTIONS, the current path the default until he
+has played the new one, verified without him on the T7 (same scenes through both paths,
+frame-by-frame image comparisons, lockstep, fncheck).
+
+What is there now: the game already draws through our own Vulkan renderer (vk.c, td6-native's),
+behind stand-ins for Direct3D 7 (d3d.c: COM methods, state tracking, the fixed-function transform
+for CPU-path draws) and DirectDraw (ddraw.c: surfaces, Lock/Unlock copies, 8-bit menus converted
+through the palette and uploaded whole every frame), with a command queue to the render thread
+(vkthread.c). No DXVK or Wine. So "native" here means removing that D3D/DirectDraw layer and the
+per-draw copying, with the game's own engine feeding Vulkan directly.
+
+Inventory [verified: HT2_DRAW_SITES and HT2_PROFILE runs, 2026-10-28/29]:
+- CPU while driving: game code 55%, vkthread.c 24% (the render thread's spin, section 10),
+  d3d.c 4.6%, fpu.c 4.3% (sin/cos), vk.c 2.3%, Vulkan driver 1.9%. The D3D layer itself is small;
+  the queue and its spin are not.
+- Draws come from 10 call sites. 0x5b14a0 (DrawIndexedPrimitiveStrided, ~60% of draws, most
+  vertices) and 0x5b1000 (DrawPrimitiveStrided, ~35%) are the engine's mesh submitters: strided
+  model-space XYZ|NORMAL|TEX1/TEX2 arrays from a vertex record (param +4/+8), Direct3D's transform
+  and lighting from matrices set before, clip status (vt+0x6c) and a render state (0x88 =
+  CLIPPING) per call, and an optional "global intensity map" (lightmap) stage written per call by
+  0x5b0ea0/0x5b0f20/0x5b0f90 into the engine's buffers +0x21f0/+0x41f0 (dynamic). The rest:
+  0x5b2000, 0x5b26c0, 0x5c6190 (2 sites), 0x5cd650, 0x5c5c50 (big batches, ~170 vertices),
+  0x4cc940, 0x579100 [guess: sky, sun/flares, road marks, HUD-like 3D; to identify].
+
+Design:
+1. Option "Renderer: Original / Native" (MORE OPTIONS row, options.txt renderer=original|native,
+   default original). Applies at the next level load.
+2. Native path, step 1: hooks on 0x5b14a0 and 0x5b1000. They read the game's vertex record and
+   index list directly and hand vk.c a compact draw: a GPU-resident mesh (cache keyed by array
+   address, count and stride; content hashed when first seen and when the engine's change marks
+   say so [guess: to find]; dynamic arrays such as the lightmap stage streamed per draw), the index
+   range, the current world/view/projection and the few states that draw changes. No COM calls,
+   no D3DState copy into the queue, no per-draw vertex copy. The engine's material and state
+   setup (SetRenderState/SetTexture from its own code) still goes through d3d.c at first, and the
+   native draw reads the current state; reading the engine's materials directly comes later.
+   Same pipelines and shaders as now (tnl.vert/draw.frag), so pictures can match pixel for pixel.
+3. Step 2: the other draw sites; the 8-bit menus uploaded only when they change; textures
+   uploaded straight from the cluster images; the render thread fed whole frames of compact
+   draws (woken per frame, no spin).
+4. Step 3: profile both paths on a quiet Win Max; record the numbers here.
+Verification for every step (T7, `t7 run --wait`): scripted scenes (menus, GRAPHICS and MORE
+OPTIONS, the yard, a drive on keys, look left/right) through both paths with --vk-software
+(lavapipe: identical pixels run to run), presents compared frame by frame (identical, or each
+difference explained); lockstep on the race run with the native path on (the renderer only
+reads game memory); fncheck against tests/fncheck_baseline.txt; --vk-validate on NVIDIA; then
+one look on the Win Max (RADV). Risks: dynamic vertex arrays the cache must notice (fall back to
+streaming when unsure), state set inside the submitters (clip status, CLIPPING) applied the
+same way, and lockstep memory: the hooks must not write game memory.
+
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
 Installed with make install (applications menu "Hard Truck 2: King of the Road",
