@@ -83,6 +83,8 @@ static const Row rows[] = {
      {"on", "off"}, {"On", "Off"}},
     {"Dead zone", "controller_deadzone", "the sticks' dead zone against drift", "6",
      {"0", "3", "6", "10", "15", "20"}, {"0%", "3%", "6%", "10%", "15%", "20%"}},
+    {"Renderer", "renderer", "native: the game's meshes lit on the GPU (new)", "original",
+     {"original", "native"}, {"Original", "Native"}},
 };
 #define NROWS (int)(sizeof rows / sizeof rows[0])
 #define COL_ROWS 8      /* the first column's rows; the rest go to the second */

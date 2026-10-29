@@ -61,6 +61,7 @@ static const char *const help[][2] = {
     {"render_thread", "render_thread: on (drawing on a thread of its own: faster) or off"},
     {"rumble", "rumble: on (the game's force feedback on the controller's motors) or off"},
     {"controller_deadzone", "controller_deadzone: the sticks' dead zone against resting drift, percent"},
+    {"renderer", "renderer: original (the D3D stand-in lights the meshes) or native (the GPU does: being built)"},
     {NULL, NULL}};
 
 /* The first start (no options.txt yet, outside test runs): a file listing every option,
@@ -197,10 +198,12 @@ int options_save(void)
 /* The in-game options page (menu.c) changed something: apply it now */
 void options_changed(void)
 {
-    extern void vk_options(void), widescreen_options(void), win_options(void), pad_options(void);
+    extern void vk_options(void), widescreen_options(void), win_options(void), pad_options(void),
+        d3d_options(void);
     widescreen_options();
     vk_options();
     win_options();
     frame_limit_options();
     pad_options();
+    d3d_options();
 }

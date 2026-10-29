@@ -24,9 +24,11 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 #include "runtime.h"
 #include "gfx.h"
+#include "options.h"
 #include "vk.h"
 
 static double now_real_ms(void)
@@ -413,6 +415,8 @@ static void count(int api, uint32_t fvf, uint32_t prim, uint32_t verts, uint32_t
     s->prims += prims;
 }
 
+static unsigned long native_draws, cpu_draws;   /* "renderer = native": draws each way */
+
 /* HT2_DRAW_SITES: draws counted by the program's call site (the return address), the 40 busiest in
    the summary (which game code draws what: the native renderer's inventory, DESIGN.md) */
 static struct { uint32_t ret; unsigned long calls, verts; } sites[1024];
@@ -443,7 +447,8 @@ static void print_stats(const char *why)
         __typeof__(sites[0]) t = sites[k]; sites[k] = sites[b]; sites[b] = t;
         logmsg(LOG_ALWAYS, "draw site %08x: %lu calls, %lu vertices", sites[k].ret, sites[k].calls, sites[k].verts);
     }
-    logmsg(LOG_ALWAYS, "D3D draw summary (%s, %lu frames): %d kinds", why, stats_frames, nstats);
+    logmsg(LOG_ALWAYS, "D3D draw summary (%s, %lu frames): %d kinds; %lu draws by the native path, %lu by the CPU transform",
+           why, stats_frames, nstats, native_draws, cpu_draws);
     for (int i = 0; i < nstats; i++) {
         Stat *s = &stats[i];
         if (s->api >= API_PV)
@@ -872,6 +877,17 @@ static void tnl_const(const Xform *x, TnlConst *k)
 
 /* the vertices are the game's usual layout, interleaved in one buffer: the GPU can take them as
    they are */
+/* "renderer = native": draws the GPU transform takes in the game's own layouts (DESIGN.md 11) */
+int d3d_native = -1;
+void d3d_options(void)
+{
+    d3d_native = !strcasecmp(option_str("renderer", "original"), "native");
+}
+static int native_layout(const Fetch *f)
+{
+    return f->l.pos == 1 && f->l.nblend == 0 && f->l.ntex <= 1 && (!f->l.ntex || f->l.texdim[0] == 2);
+}
+
 static int gpu_layout(const Fetch *f)
 {
     return f->l.fvf == 0x1d2 && f->spos == 40 && f->normal == f->pos + 12 && f->diffuse == f->pos + 24 &&
@@ -1006,6 +1022,52 @@ static uint32_t draw(Device *d, int api, uint32_t prim, const Fetch *f, uint32_t
         free(ix);
         return D3D_OK;
     }
+    if (d3d_native < 0)
+        d3d_options();
+    if (gpu && d3d_native && native_layout(f) && vk_tnl_ok(&d->st, (int)n)) {
+        /* "renderer = native" (DESIGN.md section 11): the game's own vertex layouts transformed and
+           lit on the GPU (tnl.vert) instead of here: packed into its 40-byte record (position,
+           normal, diffuse, specular, one texture coordinate); a colour source naming a colour the
+           vertices do not have takes the material, as the CPU path does (mat_source) */
+        double t1 = now_real_ms();
+        uint8_t *raw = malloc((size_t)n * 40);
+        uint16_t *ix = nidx ? malloc(nidx * sizeof *ix) : NULL;
+        if (!raw || (nidx && !ix))
+            fatal("out of memory");
+        for (uint32_t i = 0; i < n; i++) {
+            uint8_t *o = raw + (size_t)i * 40;
+            uint32_t a = f->pos + (start + i) * f->spos;
+            memcpy(o, gptr(a), 12);
+            if (f->l.normal >= 0) memcpy(o + 12, gptr(f->normal + (start + i) * f->snormal), 12);
+            else memset(o + 12, 0, 12);
+            uint32_t dc = f->l.diffuse >= 0 ? R32(f->diffuse + (start + i) * f->sdiffuse) : 0xffffffffu;
+            uint32_t sc = f->l.specular >= 0 ? R32(f->specular + (start + i) * f->sspecular) : 0xff000000u;
+            memcpy(o + 24, &dc, 4);
+            memcpy(o + 28, &sc, 4);
+            if (f->l.ntex) memcpy(o + 32, gptr(f->tex[0] + (start + i) * f->stex[0]), 8);
+            else memset(o + 32, 0, 8);
+        }
+        for (uint32_t i = 0; i < nidx; i++)
+            ix[i] = (uint16_t)R16(idx + 2 * i);
+        Xform x;
+        TnlConst k;
+        xform_setup(&d->st, &x, d->st.rs[RS_LIGHTING] != 0);
+        tnl_const(&x, &k);
+        tnl_world(k.world, &d->st.xf[XF_WORLD]);
+        int hd = f->l.diffuse >= 0, hs = f->l.specular >= 0;
+        for (int sh = 0; sh < 16; sh += 4) {
+            uint32_t src = (k.flags[3] >> sh) & 15;
+            if ((src == 1 && !hd) || (src == 2 && !hs))
+                k.flags[3] &= ~(15u << sh);
+        }
+        vk_tnl_ms += now_real_ms() - t1;
+        native_draws++;
+        vk_draw_tnl(&d->st, (int)prim, raw, (int)n, ix, (int)nidx, &k);
+        free(raw);
+        free(ix);
+        return D3D_OK;
+    }
+    cpu_draws++;
     SwVertex *sv = malloc(n * sizeof *sv);
     uint16_t *ix = nidx ? malloc(nidx * sizeof *ix) : NULL;
     if (!sv || (nidx && !ix))
