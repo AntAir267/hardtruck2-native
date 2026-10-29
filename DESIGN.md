@@ -294,6 +294,20 @@ one look on the Win Max (RADV). Risks: dynamic vertex arrays the cache must noti
 streaming when unsure), state set inside the submitters (clip status, CLIPPING) applied the
 same way, and lockstep memory: the hooks must not write game memory.
 
+Step 1 done (2026-10-29): renderer = native (MORE OPTIONS > Renderer; d3d.c native_layout):
+draws in the game's own layouts (XYZ, optional normal and colours, at most one 2D texture
+coordinate, no blend weights) are packed into tnl.vert's 40-byte record and transformed and lit
+on the GPU, any size (vk_tnl_min is TD6's rule); a colour source naming a colour the vertices do
+not have takes the material (as mat_source). The existing GPU path only took TD6's exact 0x1d2
+layout, so before this every Hard Truck 2 mesh went through the CPU transform. Results [verified:
+T7]: 99.2% of draws native (526950 of 531154; the rest TEX2, the lightmapped ones); presents vs
+the original path on lavapipe (tools/dev/compare_render.sh): menus identical except the Renderer
+row itself, 3D frames differ in ~10% of pixels by under 3% (GPU vs CPU lighting rounding) and in
+at most 12 pixels per frame by more (triangle edges); lockstep IDENTICAL on the 1800-frame race
+run with renderer = native (work/seed/options.txt); CPU (T7, paced 60, tools/dev/perf_ab.sh):
+vertex processing 0.55 -> 0.33 ms a frame, game thread 2.63 -> 2.47 ms, process CPU -3%, GPU the
+same. Next: the TEX2 (lightmap) layout; then the queue and its spin (the real cost).
+
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
 Installed with make install (applications menu "Hard Truck 2: King of the Road",
