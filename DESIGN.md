@@ -233,7 +233,8 @@ menu_fps (no menu/driving test for this game: it does nothing), render_scale (te
   is render_main spinning (2000 pauses each time its queue runs dry, ~550 times a frame), then
   game code (0x5b4670, 0x5af090, 0x5db5c0...), tnl_vertex 2.8%, fpu_fcos/fsin 3.5%.
   Dead end: waking the sleeping render thread only every 32 commands (and spinning 200) starved
-  it: 1747 frame-ahead waits, 24 ms frames. Next try, on a quiet machine: a shorter spin with
+  it: 1747 frame-ahead waits, 24 ms frames - because the frame-ahead wait did not wake it (fixed
+  2026-10-29, section 11). Next try, on a quiet machine: a shorter spin with
   the per-draw wake kept, measured against this baseline; or handing work over in bigger blocks
   without the thread falling a frame behind.
 - Overhead (older note): no measurements yet. To take before any change: frame time, game-thread CPU, GPU
@@ -307,6 +308,13 @@ at most 12 pixels per frame by more (triangle edges); lockstep IDENTICAL on the 
 run with renderer = native (work/seed/options.txt); CPU (T7, paced 60, tools/dev/perf_ab.sh):
 vertex processing 0.55 -> 0.33 ms a frame, game thread 2.63 -> 2.47 ms, process CPU -3%, GPU the
 same. Next: the TEX2 (lightmap) layout; then the queue and its spin (the real cost).
+Queue and spin (2026-10-29, both renderers, it is the default path's render thread): the sleeping
+render thread is woken per 32 commands, at present and by every wait for it (vk_sync, the
+frame-ahead wait - leaving that one out was the 2026-10-28 dead end's starvation), its spin 100
+pauses. T7, paced 60, 2560x1440: process CPU 25.9 -> 22.1 s (thread off: 21.6 s), game thread
+2.7 -> 0.9 ms a frame, 10 frame-ahead waits in 3300 frames, frames 16.66 ms; thread on vs off
+presents identical on lavapipe (11 of 11); Win Max (RADV) the same picture: 16.65 ms frames,
+game thread 0.68 ms, 9 frame-ahead waits [verified: tools/dev/perf_ab.sh, compare_render.sh].
 
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
