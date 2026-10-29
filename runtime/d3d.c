@@ -1024,7 +1024,8 @@ static uint32_t draw(Device *d, int api, uint32_t prim, const Fetch *f, uint32_t
     }
     if (d3d_native < 0)
         d3d_options();
-    if (gpu && d3d_native && native_layout(f) && vk_tnl_ok(&d->st, (int)n)) {
+    /* (any size: vk_tnl_min keeps small draws on the CPU for TD6; the native path has none) */
+    if (gpu && d3d_native && native_layout(f) && vk_tnl_ok(&d->st, (int)n < vk_tnl_min ? vk_tnl_min : (int)n)) {
         /* "renderer = native" (DESIGN.md section 11): the game's own vertex layouts transformed and
            lit on the GPU (tnl.vert) instead of here: packed into its 40-byte record (position,
            normal, diffuse, specular, one texture coordinate); a colour source naming a colour the

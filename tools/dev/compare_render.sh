@@ -30,7 +30,10 @@ for sc in "${scenes[@]}"; do
         if [ ! -f $fa ] || [ ! -f $fb ]; then echo "$name $f MISSING" >> $W/summary.txt; diff=$((diff+1)); continue; fi
         if cmp -s $fa $fb; then same=$((same+1)); continue; fi
         n=$(compare -metric AE $fa $fb null: 2>&1 | cut -d' ' -f1)
-        echo "$name $f DIFFERS: $n pixels" >> $W/summary.txt; diff=$((diff+1))
+        n3=$(compare -metric AE -fuzz 3% $fa $fb null: 2>&1 | cut -d' ' -f1)
+        n10=$(compare -metric AE -fuzz 10% $fa $fb null: 2>&1 | cut -d' ' -f1)
+        pae=$(compare -metric PAE $fa $fb null: 2>&1 | sed 's/.*(\(.*\))/\1/')
+        echo "$name $f DIFFERS: $n pixels, $n3 by more than 3%, $n10 by more than 10%, peak $pae" >> $W/summary.txt; diff=$((diff+1))
         compare $fa $fb -compose src $W/d.png 2>/dev/null
         convert $fa $fb $W/d.png +append -resize 1920x $W/${name}_$f.png; rm -f $W/d.png
     done
