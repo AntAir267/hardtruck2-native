@@ -159,16 +159,30 @@ static Cmd *put(uint32_t type, size_t n)
 
 /* the commands put so far go to the render thread (seq_cst with its sleeping: it looks at the queue
    again after saying it sleeps, so it either sees these or is woken) */
-static void publish(void)
+/* A sleeping render thread is woken for a batch of WAKE_BATCH commands, at a frame's end (present)
+   and by every wait for it (vk_sync, the frame-ahead wait), not for every draw: with a wake per
+   draw it spun between draws, 22% of the game's CPU [verified: HT2_PROFILE 2026-10-28; render
+   thread off saves 17% of process CPU, T7 2026-10-29]. (A first try without the frame-ahead
+   wait's wake starved it: 1747 frame-ahead waits.) */
+#define WAKE_BATCH 32
+static unsigned long woke_at;
+static void wake_render(void)
 {
-    atomic_store(&tail->ready, tail->used);
-    atomic_store(&sent, nput);
     if (atomic_load(&sleeping)) {
+        woke_at = nput;
         pthread_mutex_lock(&lk);
         pthread_cond_signal(&wake);
         pthread_mutex_unlock(&lk);
     }
 }
+static void publish_wake(int urgent)
+{
+    atomic_store(&tail->ready, tail->used);
+    atomic_store(&sent, nput);
+    if (urgent || nput - woke_at >= WAKE_BATCH)
+        wake_render();
+}
+static void publish(void) { publish_wake(0); }
 
 /* ------------------------------------------------------------------ what a call carries */
 /* the device state vk.c reads of a draw (gfx.h D3DState): render and stage states, textures,
@@ -435,7 +449,7 @@ static void *render_main(void *arg)
             break;
         /* a little spinning before sleeping (the next draw is usually microseconds away) */
         int got = 0;
-        for (int i = 0; i < 2000 && !got; i++) {
+        for (int i = 0; i < 100 && !got; i++) {
             got = at < atomic_load(&head->ready) || atomic_load(&head->closed) || atomic_load(&quit);
             if (!got)
                 __builtin_ia32_pause();
@@ -821,7 +835,7 @@ void vk_present(Surface *src, const int *rect)
         memcpy(r + 1, rect, 16);
     memcpy(p + 32, gfx_gamma, sizeof gfx_gamma);
     unsigned long n = atomic_fetch_add(&frames_sent, 1) + 1;
-    publish();
+    publish_wake(1);
     FrameTrace *tr = trace && n - 1 < TRACE_MAX ? &trace[n - 1] : NULL;
     if (tr) {                           /* this frame's game side: since the last present (before its wait) */
         double w = now_real_ms(), cpu = thread_cpu_now();
@@ -837,6 +851,7 @@ void vk_present(Surface *src, const int *rect)
     if (n - atomic_load(&frames_done) > 1) {
         double t0 = now_real_ms();
         aheads++;
+        wake_render();
         pthread_mutex_lock(&lk);
         atomic_store(&waiting, 1);
         while (n - atomic_load(&frames_done) > 1) {

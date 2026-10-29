@@ -1,7 +1,7 @@
 #!/bin/bash
 # Renderer A/B check: the same scripted scenes run twice, with options A and B (e.g.
 # "renderer=original" "renderer=native"), presents dumped at fixed frames and compared pixel for
-# pixel. Deterministic pixels need lavapipe (t7 run --vk-software). Writes work/cmp/summary.txt and
+# pixel ("env:VAR=value" sets a variable instead). Deterministic pixels need lavapipe (t7 run --vk-software). Writes work/cmp/summary.txt and
 # work/cmp/<scene>_<frame>.png (A | B | difference) for frames that differ.
 #   tools/dev/compare_render.sh "renderer=original" "renderer=native"
 A=$1; B=$2
@@ -16,9 +16,11 @@ scenes=(
 run() {   # label, option, scene line
     IFS='|' read -r name frames dumps keys <<< "$3"
     local d=$W/$1_$name; mkdir -p $d/user
-    HT2_WIDESCREEN=1 HT2_GPU_OFFSCREEN=1 HT2_GPU_OFFSCREEN_SIZE=${SIZE:-1280x720} HT2_DUMP_PRESENT=1 \
+    local opt=$2 envs=()
+    if [[ $opt == env:* ]]; then envs=("${opt#env:}"); opt="renderer=original"; fi   # "env:HT2_RENDER_THREAD=1"
+    env "${envs[@]}" HT2_WIDESCREEN=1 HT2_GPU_OFFSCREEN=1 HT2_GPU_OFFSCREEN_SIZE=${SIZE:-1280x720} HT2_DUMP_PRESENT=1 \
     HT2_DUMP_FRAMES=$d HT2_DUMP_LIST=$dumps HT2_KEYS="$keys" \
-        build/ht2 --test --user $d/user --option "$2" --frames $frames --logfile $d/log.txt > /dev/null 2>&1
+        build/ht2 --test --user $d/user --option "$opt" --frames $frames --logfile $d/log.txt > /dev/null 2>&1
     echo "$1 $name exit $?" >> $W/summary.txt
 }
 for sc in "${scenes[@]}"; do run a "$A" "$sc" & run b "$B" "$sc" & wait; done
