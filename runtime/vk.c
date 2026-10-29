@@ -564,6 +564,15 @@ static int dumping, dump_present;
 static int sc_readable;                 /* HT2_DUMP_PRESENT in a window: the swapchain images can be read back */
 static char dumpdir[900];
 static unsigned long dump_every = 30, dump_from, nframes, readbacks;
+static unsigned long dump_list[64];
+static int ndump_list;
+static int dump_this(unsigned long n)
+{
+    if (!ndump_list) return n % dump_every == 0;
+    for (int i = 0; i < ndump_list; i++)
+        if (dump_list[i] == n) return 1;
+    return 0;
+}
 /* per-frame counters, logged every 100 frames with --log d3d or HT2_VK_STATS=1 */
 static unsigned long st_draws, st_uploads, st_upload_bytes, st_passes;
 static int st_print;
@@ -3217,6 +3226,11 @@ static int init(void)
         dump_present = p && *p && strcmp(p, "0");
         const char *from = getenv("HT2_DUMP_FROM");     /* only from that frame on */
         dump_from = from ? (unsigned long)atol(from) : 0;
+        const char *list = getenv("HT2_DUMP_LIST");     /* only these frames: "300,420,600" */
+        for (const char *q = list; q && *q && ndump_list < 64; ) {
+            dump_list[ndump_list++] = strtoul(q, (char **)&q, 10);
+            while (*q == ',' || *q == ' ') q++;
+        }
         dumping = 1;
     }
     if (getenv("HT2_HUD_LOG")) hud_log_frame = atol(getenv("HT2_HUD_LOG"));
@@ -7420,7 +7434,7 @@ void vkr_present(Surface *src, const int *rect)
     frame_begin();
     Frame *f = &fr[fi];
     nframes++;
-    int dump = dumping && nframes >= dump_from && nframes % dump_every == 0;
+    int dump = dumping && nframes >= dump_from && dump_this(nframes);
     GpuImg *g = NULL;
     if (src && !src->dead && src->mem)
         g = vk_target(src) || is_rt(src->gpu) ? rt_sync(src) : tex_sync(src);
