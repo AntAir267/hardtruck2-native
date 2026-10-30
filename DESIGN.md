@@ -430,6 +430,12 @@ Results (2026-10-30) [verified]:
 - The icon (assets/icon.png) is drawn lettering like TD6's: the game's own icon is GOG's file
   and can't ship.
 
+The fnstsw change's translator check (T7, 2026-10-30) [verified]: lockstep identical on all 1800
+frames, also with HT2_SWCC_POISON=1. Plain fncheck listed 73 FAIL against the baseline's 28, because
+the runtime turns the native functions on at start-up even without --native: they and their
+callers differ in ecx/edx and below esp, as section 12 allows. With HT2_NATIVE=0: 12040 pass, 28
+FAIL, exactly the baseline's functions. tools/dev/translator_check.sh now runs it that way.
+
 Windows zip (2026-10-30) [verified under Wine (Proton 10) only]: tools/release/windows.sh after
 linux.sh in the same checkout, 148 MB, cross-built with the Linux Zig; third_party/win is links to
 td6-native's toolchain plus our own FFmpeg (same decoders). runtime/win came with the fork; added
