@@ -61,30 +61,6 @@ static int n_list_at(CPU *c)
     return nret(c, r, 1);
 }
 
-void native_math_init(void)
-{
-    hook_n_vec_div = n_vec_div;
-    hook_n_vec_len = n_vec_len;
-    hook_n_vec_set = n_vec_set;
-    hook_n_vec_dot = n_vec_dot;
-    hook_n_list_at = n_list_at;
-    hook_n_vec_zero = n_vec_zero;
-    hook_n_plane_set = n_plane_set;
-    hook_n_mat_vec = n_mat_vec;
-    hook_n_mat_transpose = n_mat_transpose;
-}
-
-/* every native function on unless HT2_NATIVE=0 */
-void native_init(void)
-{
-    const char *e = getenv("HT2_NATIVE");
-    if (e && !strcmp(e, "0"))
-        return;
-    native_math_init();
-    extern void native_lists_init(void);
-    native_lists_init();
-}
-
 /* ---- the visibility test's helpers (batch 3) ---- */
 
 /* 0x4042a0, thiscall(): this = (0, 0, 0); eax = this [verified: disassembly] */
@@ -137,4 +113,28 @@ static int n_mat_transpose(CPU *c)
     for (int i = 0; i < 12; i++)
         W32(out + 4 * (uint32_t)i, t[i]);
     return nret(c, out, 0);
+}
+
+void native_math_init(void)
+{
+    hook_n_vec_div = n_vec_div;
+    hook_n_vec_len = n_vec_len;
+    hook_n_vec_set = n_vec_set;
+    hook_n_vec_dot = n_vec_dot;
+    hook_n_list_at = n_list_at;
+    hook_n_vec_zero = n_vec_zero;
+    hook_n_plane_set = n_plane_set;
+    hook_n_mat_vec = n_mat_vec;
+    hook_n_mat_transpose = n_mat_transpose;
+}
+
+/* every native function on unless HT2_NATIVE=0 */
+void native_init(void)
+{
+    const char *e = getenv("HT2_NATIVE");
+    if (e && !strcmp(e, "0"))
+        return;
+    native_math_init();
+    extern void native_lists_init(void);
+    native_lists_init();
 }

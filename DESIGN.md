@@ -368,7 +368,10 @@ on eax, which the original leaves = its argument: scratch registers that hold a 
 must match), lockstep IDENTICAL, presents identical [verified: T7]. Batch 2 (native_lists.c: the
 object table walkers 0x5f1190, 0x5f16f0, 0x5f1770) and batch 3 (vec_zero 0x4042a0, plane_set
 0x5b4d90, mat_vec 0x4cb300 - it stores a float into its own argument slot, live memory - and
-mat_transpose 0x5abd60) written, checks queued.
+mat_transpose 0x5abd60): fncheck 0 FAIL each except 0x5f1190 seed 63 of 64, where the random
+callback argument is a heap address: Unicorn runs the data as code, the runtime refuses ("not
+code"; the translation would too) - a random-input artefact, not a difference; lockstep IDENTICAL
+and presents identical with batches 1-2 [verified: T7, local fncheck].
 Finding: the small helpers gain little alone (the translation is already tight); the gain is in
 whole functions whose temporaries live on the stack, e.g. 0x5b4670 (the view-frustum test of a
 bounding sphere, 517 instructions, 4.2% of the CPU): native, its 40-odd stack floats become host
