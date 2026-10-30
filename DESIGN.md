@@ -318,6 +318,16 @@ on the RTX 4070); Win Max (RADV) 2560x1440: 682 of 3.7M pixels differ by more th
 Not done: GPU-resident meshes (the draws are small: ~26 vertices on average, so the per-draw
 vertex copy is a few KB a frame; the per-draw state snapshot, ~2.4 KB a draw, is the bigger copy).
 
+Where the CPU goes now (2026-10-29, Win Max, renderer = native, render thread on, profile with
+other sessions running so shares only): game code 71%, libc 6.3% (copies ~3.3%, the wake's
+mutex/cond ~1.7%), vkthread.c 5.1%, fpu.c 4.9% (fsin/fcos 4.2%), vk.c 2.9%, Vulkan driver 2.6%,
+d3d.c 2.5%. The state snapshot now goes over only when it changed (HT2_STATE_ALL=1 the old way):
+presents identical (11 of 11, lavapipe), game thread 0.98 -> 0.81 ms a frame, process CPU -0.7%
+[verified: T7]. So the layers between the game and Vulkan are ~12% of the CPU in all; the rest is
+the game's own translated code (x87-heavy: the next big lever is the translator's x87 and flags
+code, or hand-written native versions of the hottest game functions 0x5b4670, 0x5db5c0,
+0x5af090, 0x5f1190, 0x5f1770...). GPU-resident meshes would save little (small draws).
+
 Queue and spin (2026-10-29, both renderers, it is the default path's render thread): the sleeping
 render thread is woken per 32 commands, at present and by every wait for it (vk_sync, the
 frame-ahead wait - leaving that one out was the 2026-10-28 dead end's starvation), its spin 100
