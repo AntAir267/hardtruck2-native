@@ -384,6 +384,30 @@ promoted to host variables, calls to native helpers made direct, flags computed 
 code for subsystems where rewriting adds something (the engine's renderer feeding Vulkan, then
 physics, AI), function by function as above.
 
+### 13. Release: the download (Ant, 2026-10-29: "start on packaging"; native rewrite parked)
+Ant judged the native rewrite (section 12) overkill: the game uses under half a core; track 1
+stops with the fnstsw change. Next is a release, as TD6's and 1NSANE's are:
+- The download holds no part of the game. Like td6-native (tools/release/linux.sh, launcher/,
+  tools/install.py, the closest relative: same runtime family, FFmpeg) with 1NSANE's innoextract:
+  an AppImage whose launcher, the first time, takes the player's GOG installer
+  (setup_hard_truck_2_king_of_the_road_1.3_amd_rdna_fix_(52932).exe, unpacked by innoextract
+  without running it) or an installed GOG folder, checks the files against the release's hashes
+  (builds/ht2_gog13.manifest.sha256), copies them to ~/.local/share/hardtruck2-native/game,
+  translates king.exe (bundled Python 3.14 + Capstone, tools/recomp.py), compiles it with the
+  bundled Zig against the prebuilt runtime (lib/libruntime.a, SDL3, FFmpeg) and starts it; later
+  runs start the game at once until a new download (another VERSION).
+- Built with Zig 0.17.0 for glibc 2.31 (runs on Linux from 2020 on); third_party from td6-native
+  and 1nsane-native (zig, sdl3-rel, python-standalone, pack-venv, appimagetool, innoextract) and an
+  FFmpeg 8.0.1 of our own: decoders indeo5, mp3float, mp3; demuxer mp3; parser mpegaudio; file
+  protocol; swscale, swresample (the 12 MP3 tracks, the two Indeo 5 movies).
+- Docs: README.md (getting it, what works, what does not: no network play), CREDITS.md and the
+  licences the download carries (SDL3, FFmpeg LGPL with its source, Zig/LLVM, Capstone, Python,
+  innoextract), BUILDING.md. A public mirror like 1NSANE's needs Ant's yes in this chat.
+- Checks before it ships: a clean user folder set up from the GOG installer by the AppImage alone
+  (--setup-from, no network), the --test runs and lockstep against that build, then Ant's
+  playthrough on the release build.
+Open: a Windows build (1NSANE and TD6 have one) - ask Ant.
+
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
 Installed with make install (applications menu "Hard Truck 2: King of the Road",
