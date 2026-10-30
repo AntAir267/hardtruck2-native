@@ -44,6 +44,7 @@ void fpu_init(CPU *c)
 /* The exception bits come from the host x87, which ran the same operations. Tests against
    an emulator that does not model them can turn them off. (fpu_sw itself is inline, cpu.h.) */
 int fpu_sw_exceptions = 1;
+uint32_t fpu_swcc_poison;
 
 void fpu_clex(CPU *c)
 {

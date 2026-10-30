@@ -111,6 +111,10 @@ static inline f80 fpu_frndint(f80 v) { __asm__("frndint" : "+t"(v)); return v; }
 
 void fpu_setcw(CPU *c, uint32_t cw);
 extern int fpu_sw_exceptions;
+/* FNSTSW where nothing reads the exception bits (AL) afterwards (codegen.py al_dead_after) */
+extern uint32_t fpu_swcc_poison;       /* HT2_SWCC_POISON=1 (tests): junk exception bits there, to
+                                          show that nothing reads them */
+static inline uint32_t fpu_sw_cc(CPU *c) { return (c->fsw & 0x4700u) | ((c->ftop & 7) << 11) | fpu_swcc_poison; }
 static inline uint32_t fpu_sw(CPU *c)  /* FNSTSW: condition bits, top, the host's exception bits */
 {
     uint16_t sw = 0;

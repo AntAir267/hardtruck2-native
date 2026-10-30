@@ -1395,6 +1395,51 @@ class FuncGen:
         return False
 
     # -------------------------------------------------- x87
+    def al_dead_after(self, a):
+        """No path from the instruction after `a` reads AL before writing it. A call counts as
+        writing eax (MSVC's conventions pass nothing in eax and return in it [guess, proven for each
+        build by fncheck and lockstep]); a return, a jump out of the function and too long a search
+        count as reads."""
+        insns, succ = self.f.insns, self.succ
+        AL = ('al', 'ax', 'eax')
+        WRITE_ONLY = ('mov', 'movzx', 'movsx', 'lea', 'pop', 'fnstsw', 'lodsb', 'lodsw', 'lodsd', 'in')
+        IMPLICIT_READ = ('cdq', 'cwde', 'cbw', 'cwd', 'xlatb', 'stosb', 'stosw', 'stosd', 'scasb', 'scasw',
+                         'scasd', 'out', 'aaa', 'aas', 'daa', 'das', 'aam', 'aad', 'cmpxchg')
+        work, seen = list(succ.get(a, [])), set()
+        if not work:
+            return False
+        while work:
+            x = work.pop()
+            if x in seen:
+                continue
+            seen.add(x)
+            if len(seen) > 200 or x not in insns:
+                return False
+            i = insns[x]
+            pre, m = split_prefix(i.mn)
+            ops = i.ops
+            if m in ('ret', 'retn', 'retf', 'iretd') or m in IMPLICIT_READ:
+                return False
+            if m in ('mul', 'imul', 'div', 'idiv') and len(ops) == 1:
+                return False
+            if any(o[0] == 'm' and (o[3] in AL or o[4] in AL) for o in ops):
+                return False                   # eax in an address
+            if any(o[0] == 'r' and o[1] in AL for o in ops[1:]):
+                return False                   # a source
+            dst = ops[0] if ops else None
+            if dst is not None and dst[0] == 'r' and dst[1] in AL:
+                if m in WRITE_ONLY or m.startswith('set') or \
+                        (m in ('xor', 'sub') and len(ops) == 2 and ops[1][0] == 'r' and ops[1][1] == dst[1]):
+                    continue                   # written before any read: this path is done
+                return False                   # read (cmp, test, push, add, ...)
+            if m == 'call':
+                continue                       # eax written by the call
+            nxt = succ.get(x, [])
+            if m.startswith('j') and not nxt:
+                return False                   # out of the function
+            work.extend(nxt)
+        return True
+
     def x87_opcode(self, i):
         b = i.raw
         k = 0
@@ -1509,7 +1554,12 @@ class FuncGen:
             if reg == 4: E('fpu_com(c, ST(0), %s);' % si); return False
             if reg == 5: E('fpu_com(c, ST(0), %s); FPOP();' % si); return False
         if op == 0xdf and modrm == 0xe0:
-            E('eax = (eax & 0xffff0000u) | fpu_sw(c);')
+            # fnstsw ax: the host's exception bits (AL) only when something can read AL afterwards;
+            # MSVC code tests AH (the condition codes) and overwrites eax (al_dead_after)
+            if self.al_dead_after(i.addr):
+                E('eax = (eax & 0xffff0000u) | fpu_sw_cc(c);')
+            else:
+                E('eax = (eax & 0xffff0000u) | fpu_sw(c);')
             return False
         raise Unsupported('x87 register form %02x %02x' % (op, modrm))
 

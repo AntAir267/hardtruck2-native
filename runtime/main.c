@@ -790,6 +790,8 @@ int main(int argc, char **argv)
     if (deterministic) {
         extern int fpu_sw_exceptions;
         fpu_sw_exceptions = 0;          /* the reference emulator does not model them */
+        if (getenv("HT2_SWCC_POISON"))
+            fpu_swcc_poison = 0x3f;
     }
     extern void prof_init(void);
     prof_init();
