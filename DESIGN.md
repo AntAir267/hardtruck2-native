@@ -359,6 +359,26 @@ Rules for a native function:
   renderer A/B harness (presents identical: native code changes no pixel), and the profile.
 Verification infrastructure first: (1) memory hashes without the dead stack; (2) fncheck's
 native mode; (3) runtime/native.h (arguments, returns, x87 pushes); then the functions.
+Done 2026-10-29: mem_hash leaves out [stack_lo, esp) of every thread (cpu_dead_stacks); fncheck
+--native; runtime/native.h (NARG, nret, nret_st0, ncall/ncall_this/ncall_virt into game code);
+tools/dev/native_check.sh ADDR... (fncheck --native per function, the lockstep race run, presents
+with HT2_NATIVE=0 vs on). Batch 1 (native_math.c: vec_div 0x5aad50, vec_len 0x5aabc0, vec_set
+0x41ce10, vec_dot 0x4e1080, list_at 0x4b9bb0): fncheck 0 FAIL each (200 seeds; vec_len first failed
+on eax, which the original leaves = its argument: scratch registers that hold a value on purpose
+must match), lockstep IDENTICAL, presents identical [verified: T7]. Batch 2 (native_lists.c: the
+object table walkers 0x5f1190, 0x5f16f0, 0x5f1770) and batch 3 (vec_zero 0x4042a0, plane_set
+0x5b4d90, mat_vec 0x4cb300 - it stores a float into its own argument slot, live memory - and
+mat_transpose 0x5abd60) written, checks queued.
+Finding: the small helpers gain little alone (the translation is already tight); the gain is in
+whole functions whose temporaries live on the stack, e.g. 0x5b4670 (the view-frustum test of a
+bounding sphere, 517 instructions, 4.2% of the CPU): native, its 40-odd stack floats become host
+variables and its helper calls direct. Hand-transcribing such functions means tracking every esp
+offset through pushes - what the translator already does mechanically. So two tracks: (a) the
+translator emits native-quality C for every function: stack slots whose address does not escape
+promoted to host variables, calls to native helpers made direct, flags computed only where read
+(fncheck and lockstep prove each step for all 12271 functions at once); (b) hand-written native
+code for subsystems where rewriting adds something (the engine's renderer feeding Vulkan, then
+physics, AI), function by function as above.
 
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
