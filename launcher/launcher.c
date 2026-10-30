@@ -167,8 +167,33 @@ static void log_run(const char *const *argv, const char *out, int code)
     SDL_CloseIO(lf);
 }
 
+#ifdef _WIN32
+/* The launcher is a windowed program, its tools (Python, Zig) console ones: each would open a
+   console window of its own. They share one without a window, made by a short-lived helper
+   (SDL's background processes have none either, but lose their exit codes). */
+static void windowless_console(void)
+{
+    static int done;
+    if (done)
+        return;
+    done = 1;
+    STARTUPINFOA si = {sizeof si};
+    PROCESS_INFORMATION pi;
+    char cmd[] = "cmd.exe /c ping -n 10 127.0.0.1 >nul";
+    if (!CreateProcessA(NULL, cmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi))
+        return;
+    for (int i = 0; i < 50 && !AttachConsole(pi.dwProcessId); i++)
+        Sleep(20);
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+}
+#endif
+
 static SDL_Process *spawn(const char *const *argv)
 {
+#ifdef _WIN32
+    windowless_console();
+#endif
     SDL_PropertiesID pr = SDL_CreateProperties();
     SDL_SetPointerProperty(pr, SDL_PROP_PROCESS_CREATE_ARGS_POINTER, (void *)argv);
     SDL_SetNumberProperty(pr, SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER, SDL_PROCESS_STDIO_APP);
@@ -407,7 +432,7 @@ static int build_game(void)
         largv[k++] = res;
     static const char *const winlibs[] = {"-lz", "-lvulkan-1", "-luser32", "-lgdi32", "-lwinmm", "-limm32", "-lole32",
         "-loleaut32", "-lversion", "-luuid", "-ladvapi32", "-lsetupapi", "-lshell32", "-ldinput8", "-lbcrypt",
-        "-lpthread", "-static", "-Wl,--stack,8388608", "-mwindows", NULL};
+        "-lpthread", "-static", "-Wl,--stack,8388608", "-Wl,--subsystem,windows", "-Wl,-e,mainCRTStartup", NULL};
     for (int i = 0; winlibs[i]; i++)
         largv[k++] = winlibs[i];
 #else

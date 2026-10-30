@@ -53,7 +53,7 @@ for f in $(ls gen/code_*.c) gen/table.c gen/stubs.c; do
     echo "$Z cc -target $T $GF -c $f -o $R/obj/gen_$(basename "$f" .c).o"
 done | xargs -P "${JOBS:-6}" -I{} sh -c '{}'
 SYSLIBS="-luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lversion -luuid -ladvapi32 -lsetupapi
-         -lshell32 -ldinput8 -lbcrypt -lpthread -static -Wl,--stack,8388608 -mwindows"
+         -lshell32 -ldinput8 -lbcrypt -lpthread -static -Wl,--stack,8388608 -Wl,--subsystem,windows -Wl,-e,mainCRTStartup"
 WINLIBS="-lz -lvulkan-1 $SYSLIBS"
 LIBDIRS="-L$W/sdl3/lib -L$W/ffmpeg/lib -L$W/zlib/lib -L$W/vulkan/lib"
 FFL="-lSDL3 -lavformat -lavcodec -lswscale -lswresample -lavutil"

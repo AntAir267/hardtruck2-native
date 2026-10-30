@@ -30,3 +30,8 @@ The AppImage also carries (their licences are in it, under usr/lib/hardtruck2-re
 - [innoextract](https://constexpr.org/innoextract/) 1.9 (zlib licence; Boost, bzip2, liblzma and
   libstdc++ inside it): unpacks the GOG installer without running it.
 - SDL3 and Capstone, as above.
+
+The Windows zip carries the same, in their Windows builds (Zig for Windows, Python from
+python-build-standalone for Windows, Capstone's Windows wheel, innoextract's Windows build), and
+[zlib](https://zlib.net) (zlib licence) and the MinGW-w64 runtime (in Zig; its COPYING is in the
+zip) linked into the game.

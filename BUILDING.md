@@ -22,4 +22,6 @@ libavutil), zlib, and SDL3 3.4.18 or later built as a static library in third_pa
    lockstep).
 
 The player download: tools/release/linux.sh OUT_DIR, in a checkout of its own, with the pieces
-third_party/README.md lists.
+third_party/README.md lists. Then tools/release/windows.sh OUT_DIR in the
+same checkout makes the Windows zip, cross-built with Zig (no Windows needed; third_party/win).
+tools/dev/wine_lowfree.c says how to test it under Wine.
