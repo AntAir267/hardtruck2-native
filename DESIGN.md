@@ -406,7 +406,7 @@ stops with the fnstsw change. Next is a release, as TD6's and 1NSANE's are:
 - Checks before it ships: a clean user folder set up from the GOG installer by the AppImage alone
   (--setup-from, no network), the --test runs and lockstep against that build, then Ant's
   playthrough on the release build.
-Open: a Windows build (1NSANE and TD6 have one) - ask Ant.
+A Windows build: Ant 2026-10-30 "let's make a windows version"; the name "Hard Truck 2: Recompiled" stays.
 
 Results (2026-10-30) [verified]:
 - tools/release/linux.sh builds Hard_Truck_2_Recompiled-0.1.0-alpha-x86_64.AppImage, 124 MB
@@ -429,6 +429,25 @@ Results (2026-10-30) [verified]:
   the installer in ~/Downloads/Games by itself.
 - The icon (assets/icon.png) is drawn lettering like TD6's: the game's own icon is GOG's file
   and can't ship.
+
+Windows zip (2026-10-30) [verified under Wine (Proton 10) only]: tools/release/windows.sh after
+linux.sh in the same checkout, 148 MB, cross-built with the Linux Zig; third_party/win is links to
+td6-native's toolchain plus our own FFmpeg (same decoders). runtime/win came with the fork; added
+localtime_r/timegm stand-ins, tz offset without tm_gmtoff, HOSTFN exported so dlsym(RTLD_DEFAULT) ->
+GetProcAddress finds the API stand-ins, the test watchdog Linux-only. All 42 files compile with
+-Wpointer-to-int-cast -Wint-to-pointer-cast -Wshift-count-overflow clean (long is 32 bits there).
+- Under Wine with tools/dev/wine_lowfree.c: the race-start --test run hashes identically to the
+  Linux release build on all 1800 frames (same relative --game and --user on both, since paths
+  are in memory), and a frame dump (HT2_GPU_OFFSCREEN) draws correctly on the Radeon via Vulkan.
+- The launcher's --setup-from under Wine: unpacks with innoextract.exe, checks the files,
+  translates; the C matches Linux's exactly (diff of gen/). Compiling stops: Zig's cache locking
+  (NtLockFile) fails under Wine, as in TD6. So the compile step, the launcher's window and the
+  real window are UNCHECKED until run on real Windows.
+- Both .exe were console programs (zig cc ignores -mwindows: subsystem 3, a console window beside
+  the game; TD6's and 1NSANE's scripts have the same flag [guess: same result there, not checked]). Now --subsystem,windows
+  -e mainCRTStartup (subsystem 2 verified); the launcher's tools share a windowless console from a
+  helper (windowless_console; SDL's background processes lose exit codes). That helper is [guess]
+  until run on real Windows.
 
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
