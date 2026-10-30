@@ -408,6 +408,28 @@ stops with the fnstsw change. Next is a release, as TD6's and 1NSANE's are:
   playthrough on the release build.
 Open: a Windows build (1NSANE and TD6 have one) - ask Ant.
 
+Results (2026-10-30) [verified]:
+- tools/release/linux.sh builds Hard_Truck_2_Recompiled-0.1.0-alpha-x86_64.AppImage, 124 MB
+  (Zig 410 MB and Python 53 MB unpacked are most of it). Run it in a git worktree
+  (work/relwt, third_party/* symlinked from the main checkout, PY= the .venv python).
+- A clean user folder set up by the AppImage alone (--setup-from the GOG installer,
+  --no-launch, HT2_JOBS=6): 341 files checked, translated, compiled and linked in 2m32s. Its
+  game folder is byte-identical to the usual one (diff -r).
+- The race-start --test run (1800 frames, the translator check's keys) hashes identically every
+  frame for: the gcc build linked with the download's FFmpeg (-frounding-math), the release
+  build (Zig/clang, no -frounding-math) and the clean-setup build. So -frounding-math is dropped
+  from the players' compile, as in TD6 (the game never changes the rounding mode: no fesetround
+  in the runtime or translator). The gcc build passes lockstep, so the release build does too by
+  equal hashes.
+- Two differences that are not bugs: the system FFmpeg (7.x, with asm) and the download's
+  (8.0.1, --disable-x86asm) decode the intro movie a shade apart (ICDecompress at 0x5c1193,
+  frame 66), and the game folder's path is in the game's memory, so --hash runs only compare
+  with the same FFmpeg and the same --game path.
+- The launcher's first page, off-screen (SDL_VIDEO_DRIVER=offscreen, HT2_LAUNCHER_SHOT), finds
+  the installer in ~/Downloads/Games by itself.
+- The icon (assets/icon.png) is drawn lettering like TD6's: the game's own icon is GOG's file
+  and can't ship.
+
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
 Installed with make install (applications menu "Hard Truck 2: King of the Road",

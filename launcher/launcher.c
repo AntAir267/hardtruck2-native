@@ -700,7 +700,7 @@ static void draw(void)
     float y = 104;
     if (page == P_WELCOME) {
         y += text_wrapped(48, y, W - 96,
-                          "Hard Truck 2 - King of the Road (2000), rebuilt for today's computers. It needs your own "
+                          "Hard Truck 2 - King of the Road, rebuilt for today's computers. It needs your own "
                           "copy from GOG: this builds the game from it, once, on this computer.", 16, 0xe8e8f0);
         y += 14;
         if (have_found) {

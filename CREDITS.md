@@ -1,6 +1,6 @@
 # Credits
 
-- **Hard Truck 2: King of the Road** (2001) by SoftLab-NSK. None of the game is in this
+- **Hard Truck 2: King of the Road** by SoftLab-NSK (published by Buka). None of the game is in this
   repository or the download: each player translates their own GOG copy.
 - The translator and runtime started from Test Drive 6's port, which came from
   [1NSANE: Recompiled](https://github.com/AntAir267/1nsane-recompiled) (public domain).

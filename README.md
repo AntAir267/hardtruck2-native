@@ -1,6 +1,6 @@
 # Hard Truck 2: Recompiled
 
-Hard Truck 2: King of the Road (2001), translated from its Windows code into C and rebuilt as a
+Hard Truck 2: King of the Road, translated from its Windows code into C and rebuilt as a
 native Linux game: Vulkan graphics, SDL3 input and sound, controller support with rumble, and a
 MORE OPTIONS page in the game's own options menu (resolution, widescreen, anti-aliasing, texture
 filtering, vsync, frame limit, dead zone, renderer). The original look is always one option away.
