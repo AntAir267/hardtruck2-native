@@ -51,6 +51,15 @@ static void say(const char *st, const char *de)
     SDL_UnlockMutex(lock);
     if (headless)
         SDL_Log("%s%s%s", st ? st : "", st && de && *de ? ": " : "", de ? de : "");
+    if (st) {                           /* (the errors too: a windowed program has no terminal) */
+        char log[1024];
+        SDL_snprintf(log, sizeof log, "%s/setup.log", user);
+        SDL_IOStream *lf = SDL_IOFromFile(log, "ab");
+        if (lf) {
+            SDL_IOprintf(lf, "%s%s%s\n", st, de && *de ? ": " : "", de ? de : "");
+            SDL_CloseIO(lf);
+        }
+    }
 }
 
 static void set_progress(double p)
