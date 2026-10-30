@@ -371,7 +371,8 @@ object table walkers 0x5f1190, 0x5f16f0, 0x5f1770) and batch 3 (vec_zero 0x4042a
 mat_transpose 0x5abd60): fncheck 0 FAIL each except 0x5f1190 seed 63 of 64, where the random
 callback argument is a heap address: Unicorn runs the data as code, the runtime refuses ("not
 code"; the translation would too) - a random-input artefact, not a difference; lockstep IDENTICAL
-and presents identical with batches 1-2 [verified: T7, local fncheck].
+and presents identical with batches 1-2 [verified: T7, local fncheck]; batch 3 on the T7: fncheck 0
+FAIL each, lockstep IDENTICAL, presents identical (11 of 11).
 Finding: the small helpers gain little alone (the translation is already tight); the gain is in
 whole functions whose temporaries live on the stack, e.g. 0x5b4670 (the view-frustum test of a
 bounding sphere, 517 instructions, 4.2% of the CPU): native, its 40-odd stack floats become host
