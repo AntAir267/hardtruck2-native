@@ -25,6 +25,7 @@ static int n_vec_len(CPU *c)
     uint32_t v = NARG(0);
     f80 x = RF32(v), y = RF32(v + 4), z = RF32(v + 8);
     f80 sq = x * x + y * y + z * z;
+    c->eax = v;                         /* (left there by the original: mov eax, [esp+4]) */
     return nret_st0(c, fpu_fsqrt(sq), 0);
 }
 
