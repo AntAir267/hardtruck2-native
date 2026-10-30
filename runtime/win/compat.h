@@ -21,6 +21,10 @@
 #include <unistd.h>
 #include <pthread.h>
 
+/* the POSIX time calls, by their Windows names */
+#define localtime_r(t, tm) (localtime_s((tm), (t)) ? NULL : (tm))
+#define timegm _mkgmtime
+
 /* mkdir takes no mode on Windows */
 #define mkdir(path, mode) _mkdir(path)
 

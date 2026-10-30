@@ -42,9 +42,14 @@ static inline void api_return(CPU *c, uint32_t r, int nargs)
 }
 /* A stdcall function the program calls (an import or a COM method): the body returns eax;
    nargs dwords are popped (for COM methods nargs includes `this`). */
+#ifdef _WIN32
+#define HOSTFN_EXPORT __declspec(dllexport)     /* (GetProcAddress finds them: dlsym(RTLD_DEFAULT)) */
+#else
+#define HOSTFN_EXPORT
+#endif
 #define HOSTFN(fname, nargs) \
     static uint32_t fname##_body(CPU *c); \
-    void fname(CPU *c) { uint32_t _r = fname##_body(c); api_return(c, _r, nargs); } \
+    HOSTFN_EXPORT void fname(CPU *c) { uint32_t _r = fname##_body(c); api_return(c, _r, nargs); } \
     static uint32_t fname##_body(CPU *c)
 #define API(dll, name, nargs) HOSTFN(w_##dll##_##name, nargs)
 /* Same, file-local: COM methods and callbacks handed to the program through thunks. */

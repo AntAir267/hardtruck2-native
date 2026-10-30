@@ -535,6 +535,16 @@ static int detect(char *out, size_t n)
         if (f.found)
             return 1;
     }
+#ifdef _WIN32
+    static const char *const roots[] = {"C:/GOG Games", "C:/Program Files (x86)/GOG Galaxy/Games", NULL};
+    for (int i = 0; roots[i]; i++) {
+        FindCopy f = {out, n, 0};
+        if (exists(roots[i]))
+            SDL_EnumerateDirectory(roots[i], find_copy_cb, &f);
+        if (f.found)
+            return 1;
+    }
+#endif
     return 0;
 }
 

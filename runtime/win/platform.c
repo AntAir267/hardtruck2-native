@@ -269,7 +269,7 @@ void *dlopen(const char *name, int flags)
 
 void *dlsym(void *handle, const char *name)
 {
-    void *p = (void *)GetProcAddress((HMODULE)handle, name);
+    void *p = (void *)GetProcAddress(handle ? (HMODULE)handle : GetModuleHandleA(NULL), name);
     if (!p) snprintf(dl_err, sizeof dl_err, "%s: not found", name);
     return p;
 }

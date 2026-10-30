@@ -74,9 +74,17 @@ static void put_systemtime(uint32_t at, const struct tm *tm, int ms)
 
 static int64_t tz_offset_100ns(time_t t)
 {
+#ifdef _WIN32
+    struct tm g, l;                     /* (no tm_gmtoff: the difference of the two readings) */
+    gmtime_s(&g, &t);
+    localtime_s(&l, &t);
+    l.tm_isdst = g.tm_isdst = 0;
+    return (int64_t)(mktime(&l) - mktime(&g)) * 10000000ll;
+#else
     struct tm lt;
     localtime_r(&t, &lt);
     return (int64_t)lt.tm_gmtoff * 10000000ll;
+#endif
 }
 
 /* a game hook for GetTickCount at chosen call sites (game.c: the frame limiter's wait loop) */

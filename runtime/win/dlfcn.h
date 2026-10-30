@@ -6,6 +6,7 @@
 #define RTLD_NOW    2
 #define RTLD_LOCAL  0
 #define RTLD_GLOBAL 0x100
+#define RTLD_DEFAULT ((void *)0)        /* the program itself: what it exports (HOSTFN) */
 
 typedef struct {
     const char *dli_fname;              /* the module's path */

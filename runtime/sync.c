@@ -142,18 +142,22 @@ static int det_runnable(int i, int yielding)
     }
 }
 
+#ifndef _WIN32
 static void *det_watch(void *arg);
+#endif
 static volatile unsigned long det_turns;
 
 /* the turn goes to the next thread after `from` that can run (itself last) */
 static void det_schedule(int from, int yielding)
 {
+#ifndef _WIN32
     static int watching;
     if (!watching) {
         watching = 1;
         pthread_t w;
         pthread_create(&w, NULL, det_watch, NULL);
     }
+#endif
     det_turns++;
     tok = -1;
     for (int k = 1; k <= nparts; k++) {
@@ -166,6 +170,7 @@ static void det_schedule(int from, int yielding)
 }
 
 /* a watchdog for test runs: the turn stuck for 5 s prints every thread's stack */
+#ifndef _WIN32
 #include <dirent.h>
 #include <execinfo.h>
 #include <signal.h>
@@ -203,6 +208,7 @@ static void *det_watch(void *arg)
     (void)arg;
     return NULL;
 }
+#endif
 
 static void det_wait_turn(int me)
 {
