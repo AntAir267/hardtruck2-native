@@ -54,6 +54,12 @@ HOOKS = {
     # (0x4e04c0): widescreen.c widens the horizontal one as the projection is widened
     0x5df9a0: 'camera_pyramid',
     0x4e04c0: 'world_pyramid',
+    # native functions (runtime/native_*.c, DESIGN.md section 12): the whole call, as the original
+    0x5aad50: 'n_vec_div',
+    0x5aabc0: 'n_vec_len',
+    0x41ce10: 'n_vec_set',
+    0x4e1080: 'n_vec_dot',
+    0x4b9bb0: 'n_list_at',
 }
 CONSTS = {}
 INLINE = {}

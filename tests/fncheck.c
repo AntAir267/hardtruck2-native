@@ -2,7 +2,7 @@
    twice, as the original machine code in the Unicorn emulator and as the translated C, and
    the results (registers, x87 stack, every byte written) must be identical.
 
-     fncheck --game DIR [--seeds N] [--only ADDR] [--verbose]
+     fncheck --game DIR [--seeds N] [--only ADDR] [--native] [--verbose]
 
    Functions that call into Windows/DirectX, fault on the random inputs, or run too long are
    skipped (they are covered by whole-program runs instead). The native run happens in a
@@ -20,6 +20,9 @@
 #define MAX_INSNS 3000000
 
 static uc_engine *uc;
+/* --native: the native functions (runtime/native_*.c, DESIGN.md section 12) are on, and for them
+   the scratch registers ecx and edx and the dead stack below the final esp are not compared */
+static int native_mode;
 static uint32_t scratch, stack_top, teb, gdt_base;
 static CPU *cpu;
 
@@ -269,7 +272,7 @@ static int run_one(uint32_t fn, uint64_t seed, char *why, size_t whysz)
             n += snprintf(msg + n, sizeof msg - n, "returned to %08x; ", cpu->ret);
         static const char *rn[8] = {"eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"};
         for (int i = 0; i < 8; i++)
-            if ((&cpu->eax)[i] != out.r[i])
+            if ((&cpu->eax)[i] != out.r[i] && !(native_mode && (i == 1 || i == 2)))
                 n += snprintf(msg + n, sizeof msg - n, "%s %08x vs %08x; ", rn[i], (&cpu->eax)[i], out.r[i]);
         if ((cpu->ftop & 7) != out.top)
             n += snprintf(msg + n, sizeof msg - n, "fpu top %u vs %u; ", cpu->ftop & 7, out.top);
@@ -285,6 +288,8 @@ static int run_one(uint32_t fn, uint64_t seed, char *why, size_t whysz)
         size_t bad = 0;
         for (size_t i = 0; i < nw && n < 3500; i++) {
             uint8_t want = writes[i].old;      /* the emulator's final value at this address */
+            if (native_mode && writes[i].addr < out.r[4] && writes[i].addr >= stack_top - 0x100000u)
+                continue;                       /* (the dead stack below the final esp) */
             if (R8(writes[i].addr) != want) {
                 if (bad++ < 8)
                     n += snprintf(msg + n, sizeof msg - n, "mem %08x %02x vs %02x; ", writes[i].addr, R8(writes[i].addr), want);
@@ -323,6 +328,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--seeds") && i + 1 < argc) seeds = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--only") && i + 1 < argc) only = strtoul(argv[++i], NULL, 16);
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
+        else if (!strcmp(argv[i], "--native")) native_mode = 1;
     }
     log_mask = 0;
     deterministic = 1;                  /* the game as shipped: no Enhanced hooks, no mods */
@@ -334,6 +340,10 @@ int main(int argc, char **argv)
     stack_top = cpu->stack_hi - 0x10000;
     scratch = vm_alloc(0, 0x10000, 0);
     uc_setup();
+    if (native_mode) {
+        extern void native_init(void);
+        native_init();
+    }
     int count[5] = {0};
     for (int k = 0; k < func_count; k++) {
         uint32_t fn = func_table[k].addr;

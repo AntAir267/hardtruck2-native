@@ -298,6 +298,25 @@ static __thread CPU *tls_cpu;
 CPU *current_cpu(void) { return tls_cpu; }
 void set_current_cpu(CPU *c) { tls_cpu = c; }
 static int thread_counter;
+#define MAX_CPUS 64
+static CPU *all_cpus[MAX_CPUS];
+
+/* Each thread's dead stack, [stack_lo, esp): what no code can read, which memory hashes leave out
+   (a native function need not leave the original's stale pushes there; DESIGN.md section 12) */
+int cpu_dead_stacks(uint32_t *lo, uint32_t *hi, int max)
+{
+    int n = 0, k = thread_counter < MAX_CPUS ? thread_counter : MAX_CPUS;
+    for (int i = 0; i < k && n < max; i++) {
+        CPU *c = all_cpus[i];
+        if (!c) continue;
+        uint32_t e = c->esp;
+        if (e <= c->stack_lo || e > c->stack_hi) continue;
+        lo[n] = c->stack_lo;
+        hi[n] = e;
+        n++;
+    }
+    return n;
+}
 
 CPU *cpu_new(uint32_t stack_size)
 {
@@ -319,6 +338,8 @@ CPU *cpu_new(uint32_t stack_size)
     c->fs_base = teb;
     c->esp = c->stack_hi - 16;
     c->thread_index = __atomic_fetch_add(&thread_counter, 1, __ATOMIC_SEQ_CST);
+    if (c->thread_index < MAX_CPUS)
+        all_cpus[c->thread_index] = c;
     W32(teb + 0x24, 0x100 + 4 * c->thread_index);
     fpu_new(c);                          /* the host FPU is the caller's: not touched here */
     c->fcw = 0x27f;                      /* what Windows gives a new thread */
@@ -432,9 +453,10 @@ void runtime_setup(void)
     extern void widescreen_init(void);
     widescreen_init();
     padgame_init();
-    extern void game_init(void), menu_init(void);
+    extern void game_init(void), menu_init(void), native_init(void);
     game_init();
     menu_init();
+    native_init();
 }
 
 /* ------------------------------------------------------------------ main */

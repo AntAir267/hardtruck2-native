@@ -476,13 +476,37 @@ static uint64_t hash_range(uint64_t h, uint32_t a, uint32_t n)
 }
 
 /* The image's data and every region handed out (stacks, heaps, surfaces, sound buffers). */
+/* a region's hash without the dead stacks inside it */
+static uint64_t hash_live(uint64_t h, uint32_t a, uint32_t n, const uint32_t *lo, const uint32_t *hi, int nd)
+{
+    uint32_t end = a + n;
+    for (;;) {
+        int best = -1;                  /* the first dead range starting in [a, end) */
+        for (int i = 0; i < nd; i++)
+            if (hi[i] > a && lo[i] < end && (best < 0 || lo[i] < lo[best]))
+                best = i;
+        if (best < 0)
+            return hash_range(h, a, end - a);
+        uint32_t s = lo[best] > a ? lo[best] : a;
+        h = hash_range(h, a, (s - a) & ~7u);
+        a = (hi[best] + 7) & ~7u;
+        if (a >= end)
+            return h;
+    }
+}
+
+/* The image's data and every region handed out (stacks, heaps, surfaces, sound buffers), without
+   each thread's stack below its esp (dead: cpu_dead_stacks). */
 uint64_t mem_hash(void)
 {
+    extern int cpu_dead_stacks(uint32_t *lo, uint32_t *hi, int max);
+    uint32_t lo[64], hi[64];
+    int nd = cpu_dead_stacks(lo, hi, 64);
     uint32_t data = IMAGE_BASE + 0xc3000u;
     uint64_t h = hash_range(0xcbf29ce484222325ull, data, IMAGE_SIZE - 0xc3000u);
     pthread_mutex_lock(&mem_lock);
     for (int i = 0; i < nregions; i++)
-        h = hash_range(h ^ regions[i].base, regions[i].base, regions[i].size);
+        h = hash_live(h ^ regions[i].base, regions[i].base, regions[i].size, lo, hi, nd);
     pthread_mutex_unlock(&mem_lock);
     return h;
 }

@@ -336,6 +336,30 @@ pauses. T7, paced 60, 2560x1440: process CPU 25.9 -> 22.1 s (thread off: 21.6 s)
 presents identical on lavapipe (11 of 11); Win Max (RADV) the same picture: 16.65 ms frames,
 game thread 0.68 ms, 9 frame-ahead waits [verified: tools/dev/perf_ab.sh, compare_render.sh].
 
+### 12. Native code: the game rewritten function by function (Ant, 2026-10-29: "the whole thing native")
+Goal: the translated game code (king.exe's 12271 functions as generated C) replaced by
+hand-written native C, working on the same memory and structures, until nothing translated is
+left on the paths that run. Every function not yet rewritten stays translated, so the game plays
+throughout; HT2_NATIVE=0 turns every native function off (A/B and bisecting).
+Order: by CPU cost (HT2_PROFILE; the 40 hottest are 46% of all CPU on 2026-10-29: 0x5b4670,
+0x5db5c0, 0x5af090, 0x5f1190, 0x5f1770, 0x5aad50, 0x5f1850, 0x5aabc0, 0x5ab130, 0x5f7f40, ...),
+then by subsystem (the engine's renderer feeding Vulkan directly, physics, AI, the menus), so
+whole call trees go native and the calls between them become plain C calls.
+Rules for a native function:
+- Same results bit for bit: x87 arithmetic in f80 (the host's 80-bit long double under the game's
+  control word, as the translation does), floats rounded where the original stores them; the
+  same memory written; eax (and edx, st(0)) returned as the original returns them; the stack
+  popped by the callee's convention. Scratch registers (ecx, edx unless returned) and the dead
+  stack below esp need not match.
+- Registered as a hook (builds/ht2_gog13.py HOOKS, name n_<what>) in runtime/native_*.c; the
+  translated original stays as the fallback.
+- Proven before it counts: fncheck --only ADDR with many seeds (original in Unicorn vs native;
+  scratch registers and the dead stack left out for native functions), lockstep on the race run
+  (memory hashes leave out each thread's stack below its esp, which no code can read), the
+  renderer A/B harness (presents identical: native code changes no pixel), and the profile.
+Verification infrastructure first: (1) memory hashes without the dead stack; (2) fncheck's
+native mode; (3) runtime/native.h (arguments, returns, x87 pushes); then the functions.
+
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
 Installed with make install (applications menu "Hard Truck 2: King of the Road",
