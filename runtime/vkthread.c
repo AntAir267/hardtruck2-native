@@ -240,8 +240,28 @@ static void send_ctx(void)
     memcpy(cmd + 1, &c, sizeof c);
 }
 
+/* The state goes over only when it differs from what was sent last: it is ~2.4 KB, and a draw
+   seldom changes it (memory copying was ~3% of the game's CPU, 2026-10-29). HT2_STATE_ALL=1 sends
+   it with every call (to compare). The render thread's copy (rst) only changes by C_STATE. */
+static StateSnap state_sent;
+static int state_valid, state_all = -1;
+static int state_same(const D3DState *st)
+{
+    const StateSnap *s = &state_sent;
+    return state_valid && s->rt == st->rt && s->zb == st->zb && !memcmp(s->xf, st->xf, sizeof s->xf) &&
+           !memcmp(&s->vp, &st->vp, sizeof s->vp) && !memcmp(s->tex, st->tex, sizeof s->tex) &&
+           !memcmp(s->rs, st->rs, sizeof s->rs) && !memcmp(s->tss, st->tss, sizeof s->tss);
+}
 static void send_state(const D3DState *st)
 {
+    if (state_all < 0)
+        state_all = getenv("HT2_STATE_ALL") != NULL;
+    seen(st->rt);
+    seen(st->zb);
+    for (int i = 0; i < STAGES; i++)
+        seen(st->tex[i]);
+    if (!state_all && state_same(st))
+        return;
     Cmd *cmd = put(C_STATE, sizeof(Cmd) + sizeof(StateSnap));
     StateSnap *s = (StateSnap *)(cmd + 1);
     memcpy(s->rs, st->rs, sizeof s->rs);
@@ -251,10 +271,8 @@ static void send_state(const D3DState *st)
     memcpy(&s->vp, &st->vp, sizeof s->vp);
     s->rt = st->rt;
     s->zb = st->zb;
-    seen(st->rt);
-    seen(st->zb);
-    for (int i = 0; i < STAGES; i++)
-        seen(st->tex[i]);
+    state_sent = *s;
+    state_valid = 1;
 }
 
 /* the inline way: what vk.c reads, from the game side's variables, then its function at once */

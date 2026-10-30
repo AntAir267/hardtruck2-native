@@ -17,7 +17,7 @@ run() {   # label, option, scene line
     IFS='|' read -r name frames dumps keys <<< "$3"
     local d=$W/$1_$name; mkdir -p $d/user
     local opt=$2 envs=()
-    if [[ $opt == env:* ]]; then envs=("${opt#env:}"); opt="renderer=original"; fi   # "env:HT2_RENDER_THREAD=1"
+    if [[ $opt == env:* ]]; then read -ra envs <<< "${opt#env:}"; opt="renderer=${RENDERER:-original}"; fi   # "env:HT2_RENDER_THREAD=1"
     env "${envs[@]}" HT2_WIDESCREEN=1 HT2_GPU_OFFSCREEN=1 HT2_GPU_OFFSCREEN_SIZE=${SIZE:-1280x720} HT2_DUMP_PRESENT=1 \
     HT2_DUMP_FRAMES=$d HT2_DUMP_LIST=$dumps HT2_KEYS="$keys" \
         build/ht2 --test --user $d/user --option "$opt" --frames $frames --logfile $d/log.txt > /dev/null 2>&1
