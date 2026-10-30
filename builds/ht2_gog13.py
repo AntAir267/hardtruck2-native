@@ -60,6 +60,9 @@ HOOKS = {
     0x41ce10: 'n_vec_set',
     0x4e1080: 'n_vec_dot',
     0x4b9bb0: 'n_list_at',
+    0x5f1190: 'n_table_each',
+    0x5f16f0: 'n_bucket_each2',
+    0x5f1770: 'n_bucket_each4',
 }
 CONSTS = {}
 INLINE = {}

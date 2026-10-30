@@ -25,3 +25,23 @@ static inline int nret_st0(CPU *c, f80 v, int nargs)
     c->esp += 4 + 4 * (uint32_t)nargs;
     return 1;
 }
+
+/* Calling game code (translated or native) from native code: cdecl/stdcall with stack arguments,
+   or thiscall with `self` in ecx; returns eax. guest_call keeps the caller's registers (and so ecx). */
+static inline uint32_t ncall(CPU *c, uint32_t fn, int nargs, const uint32_t *args)
+{
+    return guest_callv(c, fn, nargs, args);
+}
+static inline uint32_t ncall_this(CPU *c, uint32_t fn, uint32_t self, int nargs, const uint32_t *args)
+{
+    uint32_t keep = c->ecx;
+    c->ecx = self;
+    uint32_t r = guest_callv(c, fn, nargs, args);
+    c->ecx = keep;
+    return r;
+}
+/* a virtual method: slot at byte offset `off` of self's vtable */
+static inline uint32_t ncall_virt(CPU *c, uint32_t self, uint32_t off, int nargs, const uint32_t *args)
+{
+    return ncall_this(c, R32(R32(self) + off), self, nargs, args);
+}

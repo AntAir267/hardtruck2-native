@@ -77,4 +77,6 @@ void native_init(void)
     if (e && !strcmp(e, "0"))
         return;
     native_math_init();
+    extern void native_lists_init(void);
+    native_lists_init();
 }
