@@ -86,7 +86,7 @@ build/ht2_ref: $(RT_OBJ) $(GEN_OBJ) build/obj/gen_x87_special.o build/obj/ref_cp
 	$(CC) -o $@ $^ $(UNICORN)/lib/libunicorn.a $(LDFLAGS) -lrt
 
 check: build/fncheck
-	build/fncheck --game $(GAME)
+	HT2_NATIVE=0 build/fncheck --game $(GAME)   # (the hand-written functions off, as the baseline)
 
 clean:
 	rm -rf build gen
