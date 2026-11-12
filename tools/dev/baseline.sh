@@ -24,7 +24,8 @@ run() {   # renderer, scene line
     echo "$1 $name exit $?" >> $OUT/exits.txt
 }
 for sc in "${scenes[@]}"; do run original "$sc" & run native "$sc" & wait; done
-mkdir -p $OUT/race_user; cp -r work/seed/. $OUT/race_user/
+mkdir -p $OUT/race_user                # (the translator check's seed: full screen, Direct3D on)
+sed -e "s/^fullscreen=off/fullscreen=on/" -e "s/^d3d=off/d3d=on/" $G/TRUCK.INI > $OUT/race_user/TRUCK.INI
 HT2_KEYS="200:ESCAPE*4,300:RETURN*4,400:RETURN*4,1500:SPACE*4,1560:UP*200" $BIN --game $G --user $OUT/race_user \
     --test --frames 1800 --logfile $OUT/race.log --hash $OUT/race.hash > /dev/null 2>&1
 echo "race exit $?" >> $OUT/exits.txt
