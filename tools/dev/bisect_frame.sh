@@ -18,4 +18,4 @@ echo "frame $N calls $lo..$hi: first difference after call ${first:-none}" > $OU
 [ -n "$first" ] || exit 0
 paste -d' ' $W/nat.calls $W/ref.calls | awk -v f=$first '$1>=f-4 && $1<=f+2' >> $OUT
 run nat --dump-memory-call $first $W/nat.mem & run ref --dump-memory-call $first $W/ref.mem & wait
-.venv/bin/python tools/memdiff.py $W/nat.mem $W/ref.mem | head -60 >> $OUT
+.venv/bin/python third_party/antistatic/translator/memdiff.py $W/nat.mem $W/ref.mem | head -60 >> $OUT

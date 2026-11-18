@@ -21,7 +21,7 @@
    Escape. While driving, Start is Escape and the right stick and its click are the camera keys
    (below: the game takes only buttons for those actions, and button 10 not at all) [verified:
    the CONTROLLERS screen showed no binding for axes 4/5 or button 10 on them]. The game reads the keyboard as window messages, so
-   these go to the window like real keys (win_key). */
+   these go to the window like real keys. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -125,8 +125,11 @@ static void mk_set(int k, int down)
     if (mk_down[k] == down)
         return;
     mk_down[k] = down;
-    extern void win_key(int dik, int down);
-    win_key(mk_dik[k], down);
+    extern void input_key(int dik, int down);
+    extern void (*input_script_key_hook)(int dik, int down);
+    input_key(mk_dik[k], down);             /* DirectInput's keyboard */
+    if (input_script_key_hook)
+        input_script_key_hook(mk_dik[k], down);     /* and the window (win.c's script_key) */
 }
 
 void padgame_frame(unsigned long frame)

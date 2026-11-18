@@ -487,3 +487,53 @@ work/rea (king.exe, GetAVIInfo.dll). Lockstep: tools/lockstep.py --seed <folder 
 - 2026-10-26 (later): menus on Vulkan (8-bit palettes); the keyboard reaches the game (the
   window layer lost its main window when the first frame window was destroyed); loading screen
   and driving; the test clock fix; controllers; make install.
+
+### 14. Moving onto AntiStatic (2026-11-12 to 2026-11-18)
+(Done on a local branch while the toolkit was private; merged into master once it went public on
+2026-11-18, pinned to its public v0.2.38. The notes below are the move as it happened.)
+Ant 2026-11-12: move every relevant game fully onto the AntiStatic toolkit; for Hard Truck 2
+(public repo, private toolkit) "move privately, publish later". Worktree work/as, branch
+`antistatic` (push guarded: its pushRemote is a dead remote). Toolkit pinned at v0.2.0 in
+third_party/antistatic; runtime/ keeps port.h, port.c (hooks), and the game's own files (game,
+menu, widescreen, padgame, dplay, dshow, vfw, getaviinfo, inifile, native_*); the translator and
+the rest of the runtime are deleted. Baselines of master (commit dce2763) recorded on the T7 with
+tools/dev/baseline.sh (lavapipe): work/baseline_t7 (race.hash; menus/yard/drive through both
+renderers: hashes and presents, sums.txt), and master's translation in work/baseline_gen.
+State: builds; stops at start-up on toolkit gaps. The list sent to the toolkit chat is
+work/antistatic-gaps.md (13 items: SetCooperativeLevel, 8-bit modes, window hand-over, the
+widescreen flicker, 14 imports, INI listing, music streams, the native renderer's draw hook,
+three --test clock behaviours). runtime/tk_gaps.c and the Makefile's --allow-multiple-definition
+are temporary stand-ins until a fixed toolkit tag. Expected differences in the comparison: 12479
+functions found (ours 12271), ARENA_END, CPUID/RDTSC, the hash file's draw-hash column.
+Progress 2026-11-13 [verified, T7 lavapipe, job 20261113-004013]: on v0.2.3 (no stand-ins left)
+lockstep is identical on all 1800 frames of the race-start run; Windows call counts match master's
+on all 1800 frames on v0.2.2 (v0.2.3 adds 24 calls in frame 1: TITLEBMP now loads as Windows
+does). fncheck: 12867 pass, 63 FAIL; the 11 not in tests/fncheck_baseline.txt are checker effects
+(10: the x87 control word's bit 6, read back as hardware keeps it, 7f vs Unicorn's 3f; 0x61f2a4:
+the CRT fprem loop, the translated side giving master's values, the Unicorn side ending
+differently). Frame dumps: the menus are pixel-identical to master through both renderers; the
+yard and drive scenes show the same game state but the 3D view at 4:3, because the toolkit's d3d.c
+doesn't widen the projection (gap 18, sent). Waiting for a tag with it; then the dumps again, and
+the baseline list (tests/fncheck_baseline.txt) rewritten for the new translator (12479 functions).
+Progress 2026-11-13, v0.2.7 [verified, T7 lavapipe]: lockstep identical (1800 frames); fncheck
+unchanged (12867 pass, the same 11 checker effects); all 8 menu dumps pixel-identical to master;
+widescreen right. Left: the 3D scenes' picture differs from master's renderer (edges slightly
+everywhere, a darker sky toward the horizon, the instrument bar 2-3 levels brighter; same scene
+and game state): gap 20, sent to the toolkit chat with probes and frame paths. Next: a tag with
+it, the dumps again, then tests/fncheck_baseline.txt rewritten for the toolkit's translator, then
+Ant's play test; the public repo switches over only once the toolkit is public.
+Progress 2026-11-13, v0.2.8 / v0.2.9 [verified, T7 lavapipe, jobs 20261113-082515 and -091546]:
+gap 20 was two option defaults (fog off, resolution original in the toolkit); v0.2.8 turns fog on
+by default and port.h sets PORT_DEFAULT_RESOLUTION "native". Lockstep identical (1800 frames); 16 of
+the 22 baseline frames pixel-identical to master through both renderers, the other 6 differ in one
+spot around a distant object (at most 19 pixels, at most 3 levels of 255: the renderer's float
+rounding); v0.2.9 gives exactly v0.2.8's frames. tests/fncheck_baseline.txt rewritten for the
+toolkit's translator (12867 pass, 26 functions, two new kinds: cw and fprem). The move is done
+but for Ant's play test; the public repo switches over once the toolkit is public.
+2026-11-18: AntiStatic is public (github.com/AntAir267/AntiStatic-Recomp-Toolkit); the submodule
+points there at v0.2.38 (same code as the private v0.2.38). On v0.2.38 the race-start run's Windows
+call counts are v0.2.3's on all 1800 frames. The branch was squash-merged into master; the release
+scripts build from the toolkit (its translator into the bundle's tools/, its headers into
+include/, its runtime into lib/libruntime.a); runtime/win is the toolkit's (the port keeps ht2.rc
+and ht2.manifest); .recomp.json's toolchain is "AntiStatic".
+

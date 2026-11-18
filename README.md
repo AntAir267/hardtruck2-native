@@ -37,7 +37,9 @@ Settings and saves: ~/.local/share/hardtruck2-native (Windows: %APPDATA%\hardtru
 ## Building from source
 
 BUILDING.md: put the game's files in place from your own GOG copy, then `make`. DESIGN.md is the
-project's full record: how the translator and runtime work, every decision, and the checks.
+project's full record: how the translator and runtime work, every decision, and the checks. The
+translator and most of the runtime come from the [AntiStatic Recomp Toolkit](https://github.com/AntAir267/AntiStatic-Recomp-Toolkit),
+a submodule: clone with `git clone --recursive`.
 
 ## Helping
 

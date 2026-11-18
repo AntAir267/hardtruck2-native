@@ -27,15 +27,17 @@ done
 
 R=$ROOT/build/win
 rm -rf "$R"; mkdir -p "$R/obj" "$OUT"
-INC="-Iruntime -Igen -I$W/sdl3/include -I$W/ffmpeg/include -I$W/zlib/include -I$W/vulkan/include"
+TK=third_party/antistatic                  # (the AntiStatic toolkit: translator and most of the runtime)
+RT_INC="-Iruntime -I$TK/runtime/cpu -I$TK/runtime/win32 -I$TK/runtime/d3d7"
+INC="$RT_INC -Igen -I$W/sdl3/include -I$W/ffmpeg/include -I$W/zlib/include -I$W/vulkan/include"
 COMMON="-std=gnu11 -g -fno-strict-aliasing -fno-omit-frame-pointer"
 
-echo "== the runtime, for Windows (runtime/win standing in for the POSIX pieces)"
-for f in runtime/*.c runtime/win/platform.c; do
-    n=$(basename "$f" .c)
-    echo "$Z cc -target $T $COMMON -O2 -w -Iruntime/win -include runtime/win/compat.h $INC -c $f -o $R/obj/rt_$n.o"
+echo "== the runtime, for Windows (the toolkit's runtime/win standing in for the POSIX pieces)"
+for f in $TK/runtime/cpu/fpu.c $TK/runtime/win32/*.c $TK/runtime/d3d7/*.c runtime/*.c $TK/runtime/win/platform.c; do
+    n=$(basename "$f" .c); case $f in runtime/*) n=rt_$n;; *) n=tk_$n;; esac
+    echo "$Z cc -target $T $COMMON -O2 -w -I$TK/runtime/win -include $TK/runtime/win/compat.h $INC -c $f -o $R/obj/$n.o"
 done | xargs -P "${JOBS:-6}" -I{} sh -c '{}'
-"$Z" ar rcs "$R/libruntime.a" "$R"/obj/rt_*.o
+"$Z" ar rcs "$R/libruntime.a" "$R"/obj/tk_*.o "$R"/obj/rt_*.o
 
 echo "== the icon and the resources (manifest: the program's settings for Windows)"
 python3 - "$ROOT/assets/icon.png" "$R/ht2.ico" <<'EOF'
@@ -48,7 +50,7 @@ cp runtime/win/ht2.manifest "$R/"
 (cd "$R" && "$Z" rc /fo ht2.res ht2.rc)
 
 echo "== the game built with them (the check that the players' build links)"
-GF="$COMMON -O2 -w -DCPU_FAST_MEM -fno-slp-vectorize -Iruntime -Igen"
+GF="$COMMON -O2 -w -DCPU_FAST_MEM -fno-slp-vectorize $RT_INC -Igen"
 for f in $(ls gen/code_*.c) gen/table.c gen/stubs.c; do
     echo "$Z cc -target $T $GF -c $f -o $R/obj/gen_$(basename "$f" .c).o"
 done | xargs -P "${JOBS:-6}" -I{} sh -c '{}'
@@ -67,12 +69,12 @@ mkdir -p "$B/lib" "$B/include" "$B/builds" "$B/tools" "$B/licenses"
 echo "== the bundle: the runtime and its libraries, the translator's files"
 cp "$R/libruntime.a" "$R/ht2.res" "$W/sdl3/lib/libSDL3.a" "$W/zlib/lib/libz.a" "$W/vulkan/lib/libvulkan-1.a" "$B/lib/"
 cp "$W"/ffmpeg/lib/lib*.a "$B/lib/"
-cp runtime/cpu.h runtime/runtime.h "$B/include/"
+cp $TK/runtime/cpu/cpu.h $TK/runtime/cpu/tables.h $TK/runtime/win32/runtime.h runtime/port.h "$B/include/"
 cp builds/ht2_gog13.py builds/ht2_gog13.manifest.sha256 "$B/builds/"
 sha256sum gen/funcs.h | cut -c1-64 > "$B/FUNCS_SHA256"
 REL=$(cat tools/release/VERSION)
 echo "hardtruck2-recompiled $(date -u +%Y-%m-%d) $(git rev-parse --short HEAD) windows|$REL" > "$B/VERSION"
-cp tools/recomp.py tools/codegen.py tools/discover.py tools/pe.py tools/x86.py tools/fpustack.py tools/install.py "$B/tools/"
+cp $TK/translator/*.py tools/install.py "$B/tools/"
 
 echo "== Python (python-build-standalone) with Capstone, Zig for Windows, innoextract"
 cp "$TP/innoextract/innoextract.exe" "$B/innoextract.exe"
@@ -91,6 +93,7 @@ rm -f "$B"/*.pdb
 echo "== the licences (every part the download carries; CREDITS.md names them)"
 L=$B/licenses
 cp CREDITS.md LICENSE "$L/"
+cp $TK/LICENSE "$L/AntiStatic-LICENSE.txt"
 cp "$(readlink -f "$TP/sdl3-rel")"/../SDL3-*/LICENSE.txt "$L/SDL3-LICENSE.txt"
 cp "$W/zlib/LICENSE" "$L/zlib-LICENSE.txt"
 cp -r "$TP/innoextract/win/license" "$L/innoextract"

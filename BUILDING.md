@@ -3,10 +3,16 @@
 Developers build from source; players use the AppImage (README.md), which does all of this for
 them on first run.
 
+Clone with the toolkit: `git clone --recursive https://github.com/AntAir267/hardtruck2-native`
+(or `git submodule update --init` in an existing clone). The translator and most of the runtime
+are the AntiStatic Recomp Toolkit's (third_party/antistatic, pinned to a release tag); runtime/
+holds what is Hard Truck 2's own.
+
 You need gcc, make, Python 3 with Capstone (`pip install capstone`), the Vulkan loader and
 headers, FFmpeg's development libraries (libavformat, libavcodec, libswscale, libswresample,
 libavutil), zlib, and SDL3 3.4.18 or later built as a static library in third_party/sdl3
-(third_party/README.md says how). glslangValidator is needed only after a shader changes.
+(third_party/README.md says how). glslangValidator is needed only after a
+shader in the toolkit changes.
 
 1. Put the game's files in ~/.local/share/hardtruck2-native/game from your own GOG copy, with
    either the installer or an installed folder:

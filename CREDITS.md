@@ -2,8 +2,10 @@
 
 - **Hard Truck 2: King of the Road** by SoftLab-NSK (published by Buka). None of the game is in this
   repository or the download: each player translates their own GOG copy.
-- The translator and runtime started from Test Drive 6's port, which came from
-  [1NSANE: Recompiled](https://github.com/AntAir267/1nsane-recompiled) (public domain).
+- The translator and most of the runtime are the [AntiStatic Recomp Toolkit](https://github.com/AntAir267/AntiStatic-Recomp-Toolkit)
+  (public domain), a git submodule in third_party/antistatic. This port's own runtime/ holds what
+  is Hard Truck 2's: its hooks, the MORE OPTIONS page, widescreen, the controller layout, the movie
+  and music players.
 - The icon is drawn for this project (lettering only, no game art).
 
 Libraries the build uses (none is in this repository; see BUILDING.md and third_party/README.md):

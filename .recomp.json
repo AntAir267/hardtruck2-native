@@ -7,7 +7,7 @@
   "project": "Hard Truck 2: Recompiled",
   "status": "playable",
   "targets": ["Linux", "Windows"],
-  "toolchain": "own translator",
+  "toolchain": "AntiStatic",
   "approach": "Static recompilation of king.exe to C on a DirectX 7 stand-in runtime: SDL3, Vulkan, lockstep-checked against the original",
   "started": "2026-10-26",
   "maintainers": [{ "name": "AntAir267", "link": "https://github.com/AntAir267" }],

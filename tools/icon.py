@@ -9,7 +9,7 @@ import io
 import struct
 import sys
 
-sys.path.insert(0, __file__.rsplit('/', 1)[0])
+sys.path.insert(0, __file__.rsplit("/", 1)[0])  # (pe.py: the toolkit's translator folder on PYTHONPATH)
 from pe import PE
 
 RT_ICON, RT_GROUP_ICON = 3, 14
