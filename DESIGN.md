@@ -536,4 +536,9 @@ call counts are v0.2.3's on all 1800 frames. The branch was squash-merged into m
 scripts build from the toolkit (its translator into the bundle's tools/, its headers into
 include/, its runtime into lib/libruntime.a); runtime/win is the toolkit's (the port keeps ht2.rc
 and ht2.manifest); .recomp.json's toolchain is "AntiStatic".
+[verified 2026-11-18, T7 lavapipe, job 20261118-103517] On v0.2.38: lockstep identical (1800
+frames), fncheck with no failures beyond tests/fncheck_baseline.txt, frame dumps exactly v0.2.9's
+(16 of 22 pixel-identical to the pre-move master, the other 6 within 3 levels in one spot). The
+AppImage built from this master set up a clean copy from the GOG installer (3m44s) and its race
+start made the same calls as the development build on all 1800 frames.
 
