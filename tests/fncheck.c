@@ -2,7 +2,9 @@
    twice, as the original machine code in the Unicorn emulator and as the translated C, and
    the results (registers, x87 stack, every byte written) must be identical.
 
-     fncheck --game DIR [--seeds N] [--only ADDR] [--native] [--verbose]
+     fncheck --game DIR [--seeds N] [--only ADDR[,ADDR...]] [--shard K/N] [--native] [--verbose]
+   --only: just those functions (a change's per-change check); --shard K/N: every N-th function
+   from the K-th (0-based), so a full check splits across machines (tools/dev/full_check.sh)
 
    Functions that call into Windows/DirectX, fault on the random inputs, or run too long are
    skipped (they are covered by whole-program runs instead). The native run happens in a
@@ -319,14 +321,24 @@ static int run_one(uint32_t fn, uint64_t seed, char *why, size_t whysz)
 int main(int argc, char **argv)
 {
     int seeds = 4;
-    uint32_t only = 0;
+    static uint32_t only[256];
+    int nonly = 0, shard_k = 0, shard_n = 1;
     const char *home = getenv("HOME");
     snprintf(user_dir, 1024, "%s/.local/share/hardtruck2-native", home);
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--game") && i + 1 < argc) snprintf(game_dir, 1024, "%s", argv[++i]);
         else if (!strcmp(argv[i], "--user") && i + 1 < argc) snprintf(user_dir, 1024, "%s", argv[++i]);
         else if (!strcmp(argv[i], "--seeds") && i + 1 < argc) seeds = atoi(argv[++i]);
-        else if (!strcmp(argv[i], "--only") && i + 1 < argc) only = strtoul(argv[++i], NULL, 16);
+        else if (!strcmp(argv[i], "--only") && i + 1 < argc) {
+            for (char *q = argv[++i]; *q && nonly < 256; ) {
+                only[nonly++] = strtoul(q, &q, 16);
+                while (*q == ',' || *q == ' ') q++;
+            }
+        }
+        else if (!strcmp(argv[i], "--shard") && i + 1 < argc) {
+            if (sscanf(argv[++i], "%d/%d", &shard_k, &shard_n) != 2 || shard_n < 1 || shard_k < 0 || shard_k >= shard_n)
+                shard_k = 0, shard_n = 1;
+        }
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
         else if (!strcmp(argv[i], "--native")) native_mode = 1;
     }
@@ -347,7 +359,12 @@ int main(int argc, char **argv)
     int count[5] = {0};
     for (int k = 0; k < func_count; k++) {
         uint32_t fn = func_table[k].addr;
-        if (only && fn != only) continue;
+        if (k % shard_n != shard_k) continue;
+        if (nonly) {
+            int hit = 0;
+            for (int j = 0; j < nonly; j++) hit |= fn == only[j];
+            if (!hit) continue;
+        }
         int worst = -1;
         char why[4096] = "";
         for (int s = 0; s < seeds; s++) {
