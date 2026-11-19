@@ -465,7 +465,9 @@ single-threaded and emulator-bound. The smallest test that answers (CLAUDE-RULES
   menus (600 frames). 143 s on the T7 (68 s of it the build) [verified 2026-11-18].
 - **Full**: tools/dev/full_check.sh (from the laptop): every function in parallel shards (fncheck
   --shard K/N) beside the 1800-frame lockstep in one T7 job, then the frame dumps against
-  work/baseline_t7. Before a merge, an install, a toolkit pin move, or at a milestone only.
+  work/baseline_t7. Before a merge, an install, a toolkit pin move, or at a milestone only. 723 s
+  with 6 shards on the T7's 8 shared threads, sync included (was 45-55 min) [verified 2026-11-18,
+  job 20261118-172448: 12867 pass, no FAIL beyond the baseline, lockstep identical, dumps 16 + 6].
 - One T7 job rather than shards across the farm: the studio PC (where shared jobs without --on can
   land) has neither the game files nor this project's Python with Capstone/Unicorn [verified
   2026-11-18: recomp.py stopped there on "No module named 'capstone'"].
