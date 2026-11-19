@@ -455,6 +455,23 @@ GetProcAddress finds the API stand-ins, the test watchdog Linux-only. All 42 fil
   helper (windowless_console; SDL's background processes lose exit codes). That helper is [guess]
   until run on real Windows.
 
+### 15. Checks in tiers (Ant via the Recomp Advisor, 2026-11-18)
+The checking, not the game, made the farm jobs long: ~45 min each (12 in a week, the longest 55),
+mostly the function check over ~12,500 functions against Unicorn and the 1800-frame lockstep, both
+single-threaded and emulator-bound. The smallest test that answers (CLAUDE-RULES.md):
+- **Per change**: tools/dev/quick_check.sh ADDR,ADDR (on the T7: `t7 run hardtruck2-native --on t7
+  --share --back work/quick_check.txt -- tools/dev/quick_check.sh ADDRS`): the builds, the function
+  check on just the functions the change touches (fncheck --only), lockstep over the boot, film and
+  menus (600 frames). 143 s on the T7 (68 s of it the build) [verified 2026-11-18].
+- **Full**: tools/dev/full_check.sh (from the laptop): every function in parallel shards (fncheck
+  --shard K/N) beside the 1800-frame lockstep in one T7 job, then the frame dumps against
+  work/baseline_t7. Before a merge, an install, a toolkit pin move, or at a milestone only.
+- One T7 job rather than shards across the farm: the studio PC (where shared jobs without --on can
+  land) has neither the game files nor this project's Python with Capstone/Unicorn [verified
+  2026-11-18: recomp.py stopped there on "No module named 'capstone'"].
+- At the next toolkit pin move: `#define PORT_X87_PORTABLE 1` in port.h (Ant's call, 2026-11-18),
+  so results match across PCs; then the full check and new baselines.
+
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.
 Installed with make install (applications menu "Hard Truck 2: King of the Road",
