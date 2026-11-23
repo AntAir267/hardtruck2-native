@@ -3,10 +3,11 @@
 # project's game files and Python; the studio PC has neither): the function check over every
 # function in SHARDS processes at once (--shard K/N), the 1800-frame lockstep race start beside
 # them, then the frame dumps of tools/dev/baseline.sh (lavapipe). Writes work/full_check.txt: FAIL
-# functions against tests/fncheck_baseline.txt, lockstep, the dumps against work/baseline_t7
-# (master's baselines before the toolkit move, DESIGN.md 14).
+# functions against tests/fncheck_baseline.txt, lockstep, the dumps against BASE (default work/baseline_v0246:
+# the dumps and hashes recorded on AntiStatic v0.2.46, DESIGN.md 14; work/baseline_t7 has the ones from
+# before the toolkit move).
 #   tools/dev/full_check.sh [SHARDS]
-N=${1:-6}; OUT=work/full_check.txt; mkdir -p work; : > $OUT
+N=${1:-6}; BASE=${BASE:-work/baseline_v0246}; OUT=work/full_check.txt; mkdir -p work; : > $OUT
 start=$(date +%s)
 ~/DevWork/Games/tools/t7 run hardtruck2-native --on t7 --wait --timeout 240 --share-gpu --vk-software \
     --back work/fc_full --back work/full_gpu --back work/lockstep_full.txt -- bash -c "
@@ -30,9 +31,10 @@ grep "^FAIL" tests/fncheck_baseline.txt | cut -c1-14 | sort > work/fc_base.txt
 echo "fncheck FAIL functions not in the baseline: $(comm -23 work/fc_full_fails.txt work/fc_base.txt | tr '\n' ' ')" >> $OUT
 echo "lockstep 1800: $(cat $d/work/lockstep_full.txt 2>/dev/null)" >> $OUT
 same=0; diff=0
-for f in $(cd work/baseline_t7 && ls */present_*.ppm); do
-    if cmp -s work/baseline_t7/$f $d/work/full_gpu/$f; then same=$((same+1)); else diff=$((diff+1)); echo "  dump differs: $f" >> $OUT; fi
+for f in $(cd $BASE && ls */present_*.ppm); do
+    if cmp -s $BASE/$f $d/work/full_gpu/$f; then same=$((same+1)); else diff=$((diff+1)); echo "  dump differs: $f" >> $OUT; fi
 done
-echo "frame dumps: $same identical to work/baseline_t7, $diff not (6 expected within rounding: DESIGN.md 14)" >> $OUT
+echo "frame dumps: $same identical to $BASE, $diff not" >> $OUT
+cmp -s $BASE/race.hash $d/work/full_gpu/race.hash && echo "race hashes: identical to $BASE" >> $OUT || echo "race hashes: differ from $BASE" >> $OUT
 echo "total: $(( $(date +%s) - start )) s (results: $d)" >> $OUT
 cat $OUT

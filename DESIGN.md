@@ -471,8 +471,13 @@ single-threaded and emulator-bound. The smallest test that answers (CLAUDE-RULES
 - One T7 job rather than shards across the farm: the studio PC (where shared jobs without --on can
   land) has neither the game files nor this project's Python with Capstone/Unicorn [verified
   2026-11-18: recomp.py stopped there on "No module named 'capstone'"].
-- At the next toolkit pin move: `#define PORT_X87_PORTABLE 1` in port.h (Ant's call, 2026-11-18),
-  so results match across PCs; then the full check and new baselines.
+- PORT_X87_PORTABLE (Ant's call, 2026-11-18, so results match across PCs): on by default since
+  AntiStatic v0.2.46, with PORT_SSE_PORTABLE; HT2 moved to v0.2.46 on 2026-11-23 [verified, T7 job
+  20261123-105712]: lockstep identical (1800 frames); fncheck 12868 pass, nothing beyond the
+  baseline (0x5a9410 passes now and left it); all 22 frame dumps exactly v0.2.38's; the race's
+  memory hash differs from v0.2.38's from frame 952 (the maths' last bits). New baselines from that
+  job in work/baseline_v0246 (full_check.sh compares against them; BASE= picks another);
+  work/baseline_t7 keeps the pre-move ones.
 
 ## Handoff (2026-10-26)
 State: playable headless and in a window: menus, loading, driving, keyboard and controller.

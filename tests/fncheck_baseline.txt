@@ -1,4 +1,5 @@
-# fncheck baseline (2026-11-13, T7, AntiStatic v0.2.9: the toolkit's translator, 12479 functions):
+# fncheck baseline (2026-11-23, T7, AntiStatic v0.2.46: the toolkit's translator, 12479 functions;
+# 0x5a9410 passes since v0.2.46's portable x87; first recorded on v0.2.9 2026-11-13):
 # 12867 pass, 36986 skipped (import 9123, fault 27417, long 446), 63 FAIL, in these 26 functions. All judged harmless; a
 # run with anything else is new. (The 2026-10-28 baseline for HT2's own translator: 12040 pass, 28
 # FAIL in 16 functions; 0x5e5e30 passes now.)
@@ -17,7 +18,7 @@
 #           Unicorn side ends differently (C1, a stale register) [verified 2026-11-13]
 # 00488290 nan | 004e4612 cw | 004e49d0 fsw | 004e4a41 fsw | 004ea340 cw | 004f0080 fsw
 # 004fece0 fsw | 004fed80 fsw | 00513050 clock | 0052ef50 fsw | 0052efa0 cw | 0052efd0 fsw
-# 0052f020 cw | 0052f080 cw | 0052f0f0 cw | 0052f140 cw | 0059ef00 fsw | 005a9410 fsw
+# 0052f020 cw | 0052f080 cw | 0052f0f0 cw | 0052f140 cw | 0059ef00 fsw
 # 005abba0 nan | 005fe182 mmx | 00604dfb clock | 0061e749 cw | 0061ea40 cw | 0061f2a4 fprem
 # 0061f447 cw | 00626646 nan
 FAIL 00488290: seed 1: st phys7 335.85900000000000001 vs 1; 
@@ -37,7 +38,6 @@ FAIL 0052f080: seed 3: mem 025ef684 7f vs 3f; mem 025ef684 7f vs 3f; mem 025ef68
 FAIL 0052f0f0: seed 1: mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; 
 FAIL 0052f140: seed 1: mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; mem 025ef734 7f vs 3f; (12 bytes differ) 
 FAIL 0059ef00: seed 4: eax 02606d00 vs 02606d04; 
-FAIL 005a9410: seed 3: eax 02602800 vs 02602a00; 
 FAIL 005abba0: seed 4: st phys6 -213.22799999999999999 vs -nan; st phys7 744.63500000000000001 vs -nan; 
 FAIL 005fe182: seed 2: fpu top 6 vs 0; 
 FAIL 00604dfb: seed 1: eax 0000001e vs 3dc570ea; edx 00000000 vs 000930ac; mem 0260c244 1e vs ea; mem 0260c245 00 vs 70; mem 0260c246 00 vs c5; mem 0260c247 00 vs 3d; mem 0260c248 00 vs ac; mem 0260c249 00 vs 30; mem 0260c24a 00 vs 09; 
